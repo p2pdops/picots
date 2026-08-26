@@ -389,7 +389,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 12. Window Controls
+    // 12. Window Controls & Win32 Bounds
     w.bind("window_minimize", [hwnd](const std::string&) -> std::string {
         ShowWindow(hwnd, SW_MINIMIZE);
         return "{\\"status\\":\\"ok\\"}";
@@ -401,6 +401,63 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     w.bind("window_close", [hwnd](const std::string&) -> std::string {
         if (g_tray_created) Shell_NotifyIconW(NIM_DELETE, &g_tray_nid);
         PostMessage(hwnd, WM_CLOSE, 0, 0);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_set_size", [hwnd](const std::string& req) -> std::string {
+        int w = 1024, h = 768;
+        size_t comma = req.find(',');
+        if (comma != std::string::npos) {
+            size_t s1 = req.find_first_of("0123456789-");
+            if (s1 != std::string::npos && s1 < comma) w = std::atoi(req.substr(s1, comma - s1).c_str());
+            size_t s2 = req.find_first_of("0123456789-", comma + 1);
+            if (s2 != std::string::npos) h = std::atoi(req.substr(s2).c_str());
+        }
+        SetWindowPos(hwnd, NULL, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_set_position", [hwnd](const std::string& req) -> std::string {
+        int x = 100, y = 100;
+        size_t comma = req.find(',');
+        if (comma != std::string::npos) {
+            size_t s1 = req.find_first_of("0123456789-");
+            if (s1 != std::string::npos && s1 < comma) x = std::atoi(req.substr(s1, comma - s1).c_str());
+            size_t s2 = req.find_first_of("0123456789-", comma + 1);
+            if (s2 != std::string::npos) y = std::atoi(req.substr(s2).c_str());
+        }
+        SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_center", [hwnd](const std::string&) -> std::string {
+        RECT rc;
+        GetWindowRect(hwnd, &rc);
+        int w = rc.right - rc.left;
+        int h = rc.bottom - rc.top;
+        int screenW = GetSystemMetrics(SM_CXSCREEN);
+        int screenH = GetSystemMetrics(SM_CYSCREEN);
+        int x = (screenW - w) / 2;
+        int y = (screenH - h) / 2;
+        SetWindowPos(hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_set_always_on_top", [hwnd](const std::string& req) -> std::string {
+        bool top = req.find("true") != std::string::npos || req.find("1") != std::string::npos;
+        SetWindowPos(hwnd, top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_set_opacity", [hwnd](const std::string& req) -> std::string {
+        double alpha = 1.0;
+        size_t s = req.find_first_of("0123456789.");
+        if (s != std::string::npos) alpha = std::atof(req.substr(s).c_str());
+        if (alpha < 0.0) alpha = 0.0;
+        if (alpha > 1.0) alpha = 1.0;
+        LONG ex = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED);
+        SetLayeredWindowAttributes(hwnd, 0, (BYTE)(alpha * 255), LWA_ALPHA);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_flash_frame", [hwnd](const std::string& req) -> std::string {
+        bool flag = req.find("true") != std::string::npos || req.find("1") != std::string::npos;
+        FlashWindow(hwnd, flag ? TRUE : FALSE);
         return "{\\"status\\":\\"ok\\"}";
     });
 
