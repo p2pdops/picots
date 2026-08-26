@@ -6,6 +6,23 @@ export interface IpcMainInvokeEvent {
 export type IpcMainHandler = (event: IpcMainInvokeEvent, ...args: any[]) => any | Promise<any>;
 export type IpcRendererListener = (event: any, ...args: any[]) => void;
 
+export interface ElectronAPIBridge {
+  invoke(channel: string, ...args: any[]): Promise<any>;
+  send(channel: string, ...args: any[]): void;
+  on(channel: string, listener: IpcRendererListener): any;
+  once(channel: string, listener: IpcRendererListener): any;
+  removeListener(channel: string, listener: IpcRendererListener): any;
+  removeAllListeners(channel?: string): any;
+}
+
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPIBridge;
+    picotsAPI?: ElectronAPIBridge;
+    ipcRenderer?: IpcRendererManager;
+  }
+}
+
 export class IpcMainManager {
   private _handlers: Map<string, IpcMainHandler> = new Map();
   private _listeners: Map<string, Function[]> = new Map();
@@ -73,7 +90,7 @@ export class IpcRendererManager {
   private _listeners: Map<string, IpcRendererListener[]> = new Map();
 
   constructor() {
-    // Expose internal receiver on window for push events from backend
+    // Expose internal receiver and window.electronAPI / window.picotsAPI for seamless Electron compatibility
     if (typeof window !== "undefined") {
       (window as any).__picots_ipc_receive = (channel: string, ...args: any[]) => {
         const list = this._listeners.get(channel);
@@ -83,6 +100,20 @@ export class IpcRendererManager {
           }
         }
       };
+
+      // Standard Electron Preload window.electronAPI drop-in compatibility
+      const apiBridge = {
+        invoke: (channel: string, ...args: any[]) => this.invoke(channel, ...args),
+        send: (channel: string, ...args: any[]) => this.send(channel, ...args),
+        on: (channel: string, listener: IpcRendererListener) => this.on(channel, listener),
+        once: (channel: string, listener: IpcRendererListener) => this.once(channel, listener),
+        removeListener: (channel: string, listener: IpcRendererListener) => this.removeListener(channel, listener),
+        removeAllListeners: (channel?: string) => this.removeAllListeners(channel),
+      };
+
+      (window as any).electronAPI = (window as any).electronAPI || apiBridge;
+      (window as any).picotsAPI = (window as any).picotsAPI || apiBridge;
+      (window as any).ipcRenderer = (window as any).ipcRenderer || this;
     }
   }
 

@@ -104,6 +104,7 @@ bun run build
 
 ## 📚 In-Depth Documentation
 
+- **[`docs/ELECTRON_COMPATIBILITY.md`](./docs/ELECTRON_COMPATIBILITY.md)**: Master Electron API compatibility scorecard, supported methods, and production matrix.
 - **[`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md)**: Full API reference for `BrowserWindow`, `ipcMain`, `ipcRenderer`, `app`, `dialog`, `tray`, `clipboard`, and `shell`.
 - **[`docs/FRAMEWORK_INTEGRATION_GUIDE.md`](./docs/FRAMEWORK_INTEGRATION_GUIDE.md)**: Setup guides for React 19, Vue 3, Svelte 5, Next.js static exports, and TailwindCSS.
 - **[`docs/MIGRATING_FROM_ELECTRON.md`](./docs/MIGRATING_FROM_ELECTRON.md)**: 5-minute migration guide for developers switching from Electron to PicoTS.
