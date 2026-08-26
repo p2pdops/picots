@@ -25,7 +25,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
   let frontendDir = resolve(cwd, buildConfig.frontendDir || "src/frontend");
   const tempDir = resolve(cwd, ".picots");
 
-  // If frontendDir does not exist but a vite build output exists (e.g. dist-frontend or dist/client)
+  // Check Vite build outputs if frontendDir is not found
   if (!existsSync(frontendDir)) {
     if (existsSync(resolve(cwd, "dist-frontend"))) {
       frontendDir = resolve(cwd, "dist-frontend");
@@ -40,7 +40,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
 
-  // 1. Terminate any previous instance to release Windows file locks
+  // 1. Terminate previous instances to avoid Windows file locks
   if (process.platform === "win32") {
     try {
       execSync(`powershell -Command "Get-Process ${appName} -ErrorAction SilentlyContinue | Stop-Process -Force"`, {
@@ -73,7 +73,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
     }
   }
 
-  // 4. Generate native host source with all OS bindings
+  // 4. Generate native host source with System Tray, Window Subclassing, and all OS APIs
   const winHint = winConfig.resizable === false ? "WEBVIEW_HINT_FIXED" : "WEBVIEW_HINT_NONE";
   const title = (winConfig.title || appName).replace(/"/g, '\\"');
   const width = winConfig.width || 1180;
@@ -92,6 +92,15 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 #include <filesystem>
 
 namespace fs = std::filesystem;
+
+#define WM_TRAYICON (WM_USER + 100)
+#define IDM_TRAY_RESTORE 1001
+#define IDM_TRAY_TOAST   1002
+#define IDM_TRAY_QUIT    1003
+
+static NOTIFYICONDATAW g_tray_nid = {0};
+static bool g_tray_created = false;
+static WNDPROC g_original_wndproc = nullptr;
 
 std::string EscapeJson(const std::string& s) {
     std::ostringstream o;
@@ -126,12 +135,58 @@ std::string ExtractFirstArg(const std::string& req) {
     return s;
 }
 
+LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_TRAYICON) {
+        if (lParam == WM_RBUTTONUP) {
+            POINT pt;
+            GetCursorPos(&pt);
+            HMENU hMenu = CreatePopupMenu();
+            AppendMenuW(hMenu, MF_STRING, IDM_TRAY_RESTORE, L"Open ${title}");
+            AppendMenuW(hMenu, MF_STRING, IDM_TRAY_TOAST, L"Send Toast Notification");
+            AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+            AppendMenuW(hMenu, MF_STRING, IDM_TRAY_QUIT, L"Quit");
+
+            SetForegroundWindow(hwnd);
+            int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+            DestroyMenu(hMenu);
+
+            if (cmd == IDM_TRAY_RESTORE) {
+                ShowWindow(hwnd, SW_RESTORE);
+                SetForegroundWindow(hwnd);
+            } else if (cmd == IDM_TRAY_TOAST) {
+                NOTIFYICONDATAW nid = {0};
+                nid.cbSize = sizeof(NOTIFYICONDATAW);
+                nid.hWnd = hwnd;
+                nid.uID = 1001;
+                nid.uFlags = NIF_INFO | NIF_ICON;
+                nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
+                nid.dwInfoFlags = NIIF_INFO;
+                wcscpy(nid.szInfoTitle, L"${title}");
+                wcscpy(nid.szInfo, L"Triggered from System Tray Menu!");
+                Shell_NotifyIconW(NIM_MODIFY, &nid);
+            } else if (cmd == IDM_TRAY_QUIT) {
+                if (g_tray_created) Shell_NotifyIconW(NIM_DELETE, &g_tray_nid);
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
+            }
+            return 0;
+        } else if (lParam == WM_LBUTTONDBLCLK || lParam == WM_LBUTTONUP) {
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+            return 0;
+        }
+    }
+    return CallWindowProc(g_original_wndproc, hwnd, uMsg, wParam, lParam);
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     webview::webview w(false, nullptr);
     w.set_title("${title}");
     w.set_size(${width}, ${height}, ${winHint});
 
     HWND hwnd = (HWND)w.window().value();
+
+    // Subclass window procedure to receive System Tray messages
+    g_original_wndproc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)TraySubclassProc);
 
     // 1. System Info
     w.bind("get_system_info", [](const std::string&) -> std::string {
@@ -148,6 +203,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
            << "\\"features\\":["
            << "\\"Direct Win32 COM Memory IPC (Zero HTTP, 0 Open Ports)\\","
            << "\\"Pure Single-Executable Architecture (< 500 KB)\\","
+           << "\\"Native Win32 System Tray & Context Menus\\","
            << "\\"Native Win32 Open File Picker Dialogs (GetOpenFileNameW)\\","
            << "\\"Native OS Clipboard (Read/Write/Clear)\\","
            << "\\"Native Shell Integration (openExternal, showInFolder)\\","
@@ -157,7 +213,49 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return ss.str();
     });
 
-    // 2. Open File Dialog
+    // 2. System Tray Controls
+    w.bind("tray_create", [hwnd](const std::string& req) -> std::string {
+        std::string tooltip = ExtractFirstArg(req);
+        if (tooltip.empty()) tooltip = "${title}";
+
+        g_tray_nid.cbSize = sizeof(NOTIFYICONDATAW);
+        g_tray_nid.hWnd = hwnd;
+        g_tray_nid.uID = 2001;
+        g_tray_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        g_tray_nid.uCallbackMessage = WM_TRAYICON;
+        g_tray_nid.hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
+        if (!g_tray_nid.hIcon) g_tray_nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+
+        MultiByteToWideChar(CP_UTF8, 0, tooltip.c_str(), -1, g_tray_nid.szTip, sizeof(g_tray_nid.szTip)/sizeof(wchar_t));
+
+        if (Shell_NotifyIconW(NIM_ADD, &g_tray_nid)) {
+            g_tray_created = true;
+            return "{\\"status\\":\\"ok\\"}";
+        }
+        return "{\\"status\\":\\"error\\"}";
+    });
+
+    w.bind("tray_destroy", [](const std::string&) -> std::string {
+        if (g_tray_created) {
+            Shell_NotifyIconW(NIM_DELETE, &g_tray_nid);
+            g_tray_created = false;
+        }
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 3. Window Hide & Show (Minimize to Tray)
+    w.bind("window_hide", [hwnd](const std::string&) -> std::string {
+        ShowWindow(hwnd, SW_HIDE);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    w.bind("window_show", [hwnd](const std::string&) -> std::string {
+        ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 4. Open File Dialog
     w.bind("open_file_dialog", [hwnd](const std::string&) -> std::string {
         OPENFILENAMEW ofn = {0};
         wchar_t szFile[MAX_PATH] = {0};
@@ -179,13 +277,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"path\\":\\"\\"}";
     });
 
-    // 3. Message Box Dialog
+    // 5. Message Box Dialog
     w.bind("show_message_dialog", [hwnd](const std::string&) -> std::string {
         MessageBoxW(hwnd, L"Hello from ${appName}!", L"${title}", MB_OK | MB_ICONINFORMATION);
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 4. File System Listing
+    // 6. File System Listing
     w.bind("list_files", [](const std::string& req) -> std::string {
         char cwd[MAX_PATH];
         GetCurrentDirectoryA(MAX_PATH, cwd);
@@ -211,7 +309,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return ss.str();
     });
 
-    // 5. Clipboard Write
+    // 7. Clipboard Write
     w.bind("clipboard_write", [hwnd](const std::string& req) -> std::string {
         std::string text = ExtractFirstArg(req);
         if (OpenClipboard(hwnd)) {
@@ -232,7 +330,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"error\\"}";
     });
 
-    // 6. Clipboard Read
+    // 8. Clipboard Read
     w.bind("clipboard_read", [hwnd](const std::string&) -> std::string {
         std::string result = "";
         if (OpenClipboard(hwnd)) {
@@ -251,14 +349,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"text\\":\\"" + EscapeJson(result) + "\\"}";
     });
 
-    // 7. Shell Open External (Default Browser)
+    // 9. Shell Open External
     w.bind("shell_open_external", [hwnd](const std::string& req) -> std::string {
         std::string url = ExtractFirstArg(req);
         ShellExecuteA(hwnd, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 8. Shell Show Item in Folder (Explorer)
+    // 10. Shell Show Item in Folder
     w.bind("shell_show_in_folder", [](const std::string& req) -> std::string {
         std::string path = ExtractFirstArg(req);
         std::string cmd = "/select,\\"" + path + "\\"";
@@ -266,7 +364,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 9. Windows Toast Notification
+    // 11. Toast Notification
     w.bind("notification_send", [hwnd](const std::string& req) -> std::string {
         std::string title = "${appName}";
         std::string body = "Hello from PicoTS!";
@@ -289,7 +387,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 10. Window Controls
+    // 12. Window Controls
     w.bind("window_minimize", [hwnd](const std::string&) -> std::string {
         ShowWindow(hwnd, SW_MINIMIZE);
         return "{\\"status\\":\\"ok\\"}";
@@ -299,17 +397,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
     w.bind("window_close", [hwnd](const std::string&) -> std::string {
+        if (g_tray_created) Shell_NotifyIconW(NIM_DELETE, &g_tray_nid);
         PostMessage(hwnd, WM_CLOSE, 0, 0);
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 11. Benchmark
+    // 13. Benchmark
     w.bind("benchmark", [](const std::string&) -> std::string {
         return "{\\"status\\":\\"ok\\"}";
     });
 
     ${devUrl ? `w.navigate("${devUrl}");` : `w.set_html(reinterpret_cast<const char*>(g_embedded_html));`}
     w.run();
+
+    if (g_tray_created) Shell_NotifyIconW(NIM_DELETE, &g_tray_nid);
     return 0;
 }
 `;

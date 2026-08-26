@@ -285,6 +285,27 @@
                 <span class="result-value" id="shell-status">Ready</span>
               </div>
             </div>
+
+            <!-- Native System Tray Card -->
+            <div class="glass-panel dialog-card">
+              <div class="panel-header">
+                <h3 class="panel-title">System Tray & Menu</h3>
+                <span class="panel-tag">Win32 Tray</span>
+              </div>
+              <p class="dialog-desc">Adds icon to notification area with right-click context menu and background minimization.</p>
+              <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <button class="btn btn-primary" id="btn-create-tray" style="flex: 1;">
+                  <span>📥 Add to Tray</span>
+                </button>
+                <button class="btn btn-secondary" id="btn-hide-to-tray" style="flex: 1;">
+                  <span>👁️ Hide to Tray</span>
+                </button>
+              </div>
+              <div class="dialog-result-box">
+                <span class="result-label">Tray Status:</span>
+                <span class="result-value" id="tray-status">Ready</span>
+              </div>
+            </div>
           </div>
         </section>
 

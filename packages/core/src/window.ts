@@ -36,4 +36,16 @@ export class Window {
       await (globalThis as any).window_close();
     }
   }
+
+  async hide(): Promise<void> {
+    if (typeof (globalThis as any).window_hide === "function") {
+      await (globalThis as any).window_hide();
+    }
+  }
+
+  async show(): Promise<void> {
+    if (typeof (globalThis as any).window_show === "function") {
+      await (globalThis as any).window_show();
+    }
+  }
 }

@@ -5,6 +5,7 @@ export * from "./fs";
 export * from "./clipboard";
 export * from "./shell";
 export * from "./notification";
+export * from "./tray";
 export * from "./config";
 
 import { app } from "./app";
@@ -14,6 +15,7 @@ import { fs } from "./fs";
 import { clipboard } from "./clipboard";
 import { shell } from "./shell";
 import { notification } from "./notification";
+import { tray } from "./tray";
 import { defineConfig } from "./config";
 
 export const picots = {
@@ -24,6 +26,7 @@ export const picots = {
   clipboard,
   shell,
   notification,
+  tray,
   defineConfig,
 };
 

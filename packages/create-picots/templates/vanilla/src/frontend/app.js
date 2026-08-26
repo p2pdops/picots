@@ -83,6 +83,30 @@ window.api = {
       return await window.notification_send(body);
     }
   },
+
+  async trayCreate(tooltip = "PicoTS Desktop") {
+    if (typeof window.tray_create === "function") {
+      return await window.tray_create(tooltip);
+    }
+  },
+
+  async trayDestroy() {
+    if (typeof window.tray_destroy === "function") {
+      return await window.tray_destroy();
+    }
+  },
+
+  async windowHide() {
+    if (typeof window.window_hide === "function") {
+      return await window.window_hide();
+    }
+  },
+
+  async windowShow() {
+    if (typeof window.window_show === "function") {
+      return await window.window_show();
+    }
+  },
 };
 
 // Titlebar Window Controls
@@ -209,6 +233,18 @@ document.getElementById("btn-open-github")?.addEventListener("click", async () =
   if (statusEl) statusEl.textContent = "Opening browser...";
   await window.api.openExternal("https://github.com/p2pdops/picots");
   if (statusEl) statusEl.textContent = "Opened GitHub in default browser!";
+});
+
+// System Tray Handlers
+document.getElementById("btn-create-tray")?.addEventListener("click", async () => {
+  const statusEl = document.getElementById("tray-status");
+  await window.api.trayCreate("PicoTS Desktop");
+  if (statusEl) statusEl.textContent = "Icon added to Windows System Tray!";
+});
+
+document.getElementById("btn-hide-to-tray")?.addEventListener("click", async () => {
+  await window.api.trayCreate("PicoTS Desktop");
+  await window.api.windowHide();
 });
 
 // Native File Explorer
