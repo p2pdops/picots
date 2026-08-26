@@ -7,13 +7,19 @@ async function main() {
   const command = args[0] || "help";
   const config = loadConfig(process.cwd());
 
+  let devUrl = process.env.PICOTS_DEV_URL || config.dev?.url;
+  const urlIdx = args.indexOf("--url");
+  if (urlIdx !== -1 && args[urlIdx + 1]) {
+    devUrl = args[urlIdx + 1];
+  }
+
   switch (command) {
     case "build":
       await buildProject({ config });
       break;
 
     case "dev":
-      await devProject({ config });
+      await devProject({ config, devUrl });
       break;
 
     case "version":

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { inlineAssetsToHeader } from "./inliner.js";
 import { loadConfig } from "./config.js";
@@ -9,19 +9,30 @@ import type { PicotsConfig } from "@picots/core";
 export interface BuildOptions {
   cwd?: string;
   config?: PicotsConfig;
+  devUrl?: string;
 }
 
 export async function buildProject(options: BuildOptions = {}): Promise<string> {
   const cwd = options.cwd || process.cwd();
   const config = options.config || loadConfig(cwd);
+  const devUrl = options.devUrl || process.env.PICOTS_DEV_URL || config.dev?.url;
 
   const appName = config.name || "picots-app";
   const winConfig = config.window || {};
   const buildConfig = config.build || {};
 
   const outDir = resolve(cwd, buildConfig.outDir || "dist");
-  const frontendDir = resolve(cwd, buildConfig.frontendDir || "src/frontend");
+  let frontendDir = resolve(cwd, buildConfig.frontendDir || "src/frontend");
   const tempDir = resolve(cwd, ".picots");
+
+  // If frontendDir does not exist but a vite build output exists (e.g. dist-frontend or dist/client)
+  if (!existsSync(frontendDir)) {
+    if (existsSync(resolve(cwd, "dist-frontend"))) {
+      frontendDir = resolve(cwd, "dist-frontend");
+    } else if (existsSync(resolve(cwd, "build"))) {
+      frontendDir = resolve(cwd, "build");
+    }
+  }
 
   console.log(`\n🚀 [PicoTS] Building ${appName}...`);
   console.log(`   📐 Window: ${winConfig.width}x${winConfig.height} ("${winConfig.title}")`);
@@ -53,17 +64,16 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
         console.log(`🖼️  Embedding native application icon: ${iconPath}`);
         const rcPath = join(tempDir, "app.rc");
         const resPath = join(tempDir, "app_res.o");
-        // Windows resource icon index 1
         writeFileSync(rcPath, `1 ICON "${iconPath.replace(/\\/g, "/")}"\n`, "utf8");
         execSync(`windres "${rcPath}" -O coff -o "${resPath}"`, { stdio: "inherit" });
         resourceObjectParam = `"${resPath}"`;
       } catch (err) {
-        console.warn("⚠️ [PicoTS] Failed to compile icon with windres (continuing without icon):", err);
+        console.warn("⚠️ [PicoTS] Failed to compile icon with windres:", err);
       }
     }
   }
 
-  // 4. Generate native host source with configured dimensions and title
+  // 4. Generate native host source with all OS bindings
   const winHint = winConfig.resizable === false ? "WEBVIEW_HINT_FIXED" : "WEBVIEW_HINT_NONE";
   const title = (winConfig.title || appName).replace(/"/g, '\\"');
   const width = winConfig.width || 1180;
@@ -74,6 +84,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 #include "${headerPath.replace(/\\/g, "/")}"
 #include <windows.h>
 #include <commdlg.h>
+#include <shellapi.h>
 #include <shlobj.h>
 #include <string>
 #include <sstream>
@@ -101,6 +112,20 @@ std::string EscapeJson(const std::string& s) {
     return o.str();
 }
 
+std::string ExtractFirstArg(const std::string& req) {
+    std::string s = req;
+    if (s.length() >= 4 && s.front() == '[' && s.back() == ']') {
+        size_t q1 = s.find("\\"");
+        if (q1 != std::string::npos) {
+            size_t q2 = s.find("\\"", q1 + 1);
+            if (q2 != std::string::npos) {
+                return s.substr(q1 + 1, q2 - q1 - 1);
+            }
+        }
+    }
+    return s;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     webview::webview w(false, nullptr);
     w.set_title("${title}");
@@ -108,6 +133,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
     HWND hwnd = (HWND)w.window().value();
 
+    // 1. System Info
     w.bind("get_system_info", [](const std::string&) -> std::string {
         char currentDir[MAX_PATH];
         GetCurrentDirectoryA(MAX_PATH, currentDir);
@@ -123,12 +149,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
            << "\\"Direct Win32 COM Memory IPC (Zero HTTP, 0 Open Ports)\\","
            << "\\"Pure Single-Executable Architecture (< 500 KB)\\","
            << "\\"Native Win32 Open File Picker Dialogs (GetOpenFileNameW)\\","
-           << "\\"Custom Frameless Titlebar with Window Management\\","
+           << "\\"Native OS Clipboard (Read/Write/Clear)\\","
+           << "\\"Native Shell Integration (openExternal, showInFolder)\\","
+           << "\\"Windows Action Center Toast Notifications\\","
            << "\\"Hardware-Accelerated Embedded WebView2\\""
            << "]}";
         return ss.str();
     });
 
+    // 2. Open File Dialog
     w.bind("open_file_dialog", [hwnd](const std::string&) -> std::string {
         OPENFILENAMEW ofn = {0};
         wchar_t szFile[MAX_PATH] = {0};
@@ -150,26 +179,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"path\\":\\"\\"}";
     });
 
+    // 3. Message Box Dialog
     w.bind("show_message_dialog", [hwnd](const std::string&) -> std::string {
         MessageBoxW(hwnd, L"Hello from ${appName}!", L"${title}", MB_OK | MB_ICONINFORMATION);
         return "{\\"status\\":\\"ok\\"}";
     });
 
+    // 4. File System Listing
     w.bind("list_files", [](const std::string& req) -> std::string {
         char cwd[MAX_PATH];
         GetCurrentDirectoryA(MAX_PATH, cwd);
         std::string targetDir = cwd;
-
-        if (req.length() > 4 && req != "[\\"\\"]" && req != "[]") {
-            size_t firstQuote = req.find("\\"");
-            if (firstQuote != std::string::npos) {
-                size_t secondQuote = req.find("\\"", firstQuote + 1);
-                if (secondQuote != std::string::npos) {
-                    std::string extracted = req.substr(firstQuote + 1, secondQuote - firstQuote - 1);
-                    if (!extracted.empty()) targetDir = extracted;
-                }
-            }
-        }
+        std::string extracted = ExtractFirstArg(req);
+        if (!extracted.empty()) targetDir = extracted;
 
         std::ostringstream ss;
         ss << "{\\"dir\\":\\"" << EscapeJson(targetDir) << "\\",\\"items\\":[";
@@ -189,6 +211,85 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return ss.str();
     });
 
+    // 5. Clipboard Write
+    w.bind("clipboard_write", [hwnd](const std::string& req) -> std::string {
+        std::string text = ExtractFirstArg(req);
+        if (OpenClipboard(hwnd)) {
+            EmptyClipboard();
+            int wlen = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, NULL, 0);
+            if (wlen > 0) {
+                HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, wlen * sizeof(wchar_t));
+                if (hMem) {
+                    wchar_t* pMem = (wchar_t*)GlobalLock(hMem);
+                    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, pMem, wlen);
+                    GlobalUnlock(hMem);
+                    SetClipboardData(CF_UNICODETEXT, hMem);
+                }
+            }
+            CloseClipboard();
+            return "{\\"status\\":\\"ok\\"}";
+        }
+        return "{\\"status\\":\\"error\\"}";
+    });
+
+    // 6. Clipboard Read
+    w.bind("clipboard_read", [hwnd](const std::string&) -> std::string {
+        std::string result = "";
+        if (OpenClipboard(hwnd)) {
+            HANDLE hData = GetClipboardData(CF_UNICODETEXT);
+            if (hData) {
+                wchar_t* pText = (wchar_t*)GlobalLock(hData);
+                if (pText) {
+                    char utf8[4096] = {0};
+                    WideCharToMultiByte(CP_UTF8, 0, pText, -1, utf8, sizeof(utf8) - 1, NULL, NULL);
+                    result = utf8;
+                    GlobalUnlock(hData);
+                }
+            }
+            CloseClipboard();
+        }
+        return "{\\"text\\":\\"" + EscapeJson(result) + "\\"}";
+    });
+
+    // 7. Shell Open External (Default Browser)
+    w.bind("shell_open_external", [hwnd](const std::string& req) -> std::string {
+        std::string url = ExtractFirstArg(req);
+        ShellExecuteA(hwnd, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 8. Shell Show Item in Folder (Explorer)
+    w.bind("shell_show_in_folder", [](const std::string& req) -> std::string {
+        std::string path = ExtractFirstArg(req);
+        std::string cmd = "/select,\\"" + path + "\\"";
+        ShellExecuteA(NULL, "open", "explorer.exe", cmd.c_str(), NULL, SW_SHOWNORMAL);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 9. Windows Toast Notification
+    w.bind("notification_send", [hwnd](const std::string& req) -> std::string {
+        std::string title = "${appName}";
+        std::string body = "Hello from PicoTS!";
+        std::string extracted = ExtractFirstArg(req);
+        if (!extracted.empty()) body = extracted;
+
+        NOTIFYICONDATAW nid = {0};
+        nid.cbSize = sizeof(NOTIFYICONDATAW);
+        nid.hWnd = hwnd;
+        nid.uID = 1001;
+        nid.uFlags = NIF_INFO | NIF_ICON;
+        nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
+        nid.dwInfoFlags = NIIF_INFO;
+
+        MultiByteToWideChar(CP_UTF8, 0, title.c_str(), -1, nid.szInfoTitle, sizeof(nid.szInfoTitle)/sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, body.c_str(), -1, nid.szInfo, sizeof(nid.szInfo)/sizeof(wchar_t));
+
+        Shell_NotifyIconW(NIM_ADD, &nid);
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 10. Window Controls
     w.bind("window_minimize", [hwnd](const std::string&) -> std::string {
         ShowWindow(hwnd, SW_MINIMIZE);
         return "{\\"status\\":\\"ok\\"}";
@@ -202,11 +303,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
+    // 11. Benchmark
     w.bind("benchmark", [](const std::string&) -> std::string {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    w.set_html(reinterpret_cast<const char*>(g_embedded_html));
+    ${devUrl ? `w.navigate("${devUrl}");` : `w.set_html(reinterpret_cast<const char*>(g_embedded_html));`}
     w.run();
     return 0;
 }
@@ -215,14 +317,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
   const hostSrcPath = join(tempDir, "host.cc");
   writeFileSync(hostSrcPath, nativeSource, "utf8");
 
-  // 5. Compile with g++ (linking static webview2 loader + icon resource)
+  // 5. Compile with g++
   console.log("🔨 Compiling single standalone binary...");
   const finalExe = join(outDir, `${appName}.exe`);
 
   const includeDir = webviewPaths.includeDir;
   const staticLib = webviewPaths.windowsStaticLib;
 
-  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" ${resourceObjectParam} "${staticLib}" -lole32 -lshlwapi -lversion -ladvapi32 -luser32 -lcomdlg32 -o "${finalExe}"`;
+  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" ${resourceObjectParam} "${staticLib}" -lole32 -lshlwapi -lshell32 -lversion -ladvapi32 -luser32 -lcomdlg32 -o "${finalExe}"`;
   execSync(compileCmd, { stdio: "inherit" });
 
   console.log(`\n🎉 [PicoTS] Build complete: ${finalExe}\n`);

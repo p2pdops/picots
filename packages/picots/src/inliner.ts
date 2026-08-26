@@ -3,35 +3,47 @@ import { join } from "node:path";
 
 export function inlineAssetsToHeader(frontendDir: string): string {
   const htmlPath = join(frontendDir, "index.html");
-  const cssPath = join(frontendDir, "styles.css");
-  const jsPath = join(frontendDir, "app.js");
 
-  let html = existsSync(htmlPath) ? readFileSync(htmlPath, "utf8") : "<html><body><h1>PicoTS App</h1></body></html>";
-  const css = existsSync(cssPath) ? readFileSync(cssPath, "utf8") : "";
-  const js = existsSync(jsPath) ? readFileSync(jsPath, "utf8") : "";
-
-  // Inline CSS and JS into single standalone HTML bundle
-  if (css) {
-    if (html.includes('<link rel="stylesheet" href="styles.css">')) {
-      html = html.replace('<link rel="stylesheet" href="styles.css">', `<style>\n${css}\n</style>`);
-    } else if (html.includes("</head>")) {
-      html = html.replace("</head>", `<style>\n${css}\n</style></head>`);
-    } else {
-      html += `<style>\n${css}\n</style>`;
-    }
+  if (!existsSync(htmlPath)) {
+    console.warn(`⚠️ [PicoTS] No index.html found in "${frontendDir}", using fallback template.`);
+    const fallback = "<html><body style='background:#0b0f19;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;'><h1>PicoTS App</h1></body></html>";
+    return generateHeader(fallback);
   }
 
-  if (js) {
-    if (html.includes('<script src="app.js"></script>')) {
-      html = html.replace('<script src="app.js"></script>', `<script>\n${js}\n</script>`);
-    } else if (html.includes("</body>")) {
-      html = html.replace("</body>", `<script>\n${js}\n</script></body>`);
-    } else {
-      html += `<script>\n${js}\n</script>`;
-    }
-  }
+  let html = readFileSync(htmlPath, "utf8");
 
-  const htmlBuffer = Buffer.from(html, "utf8");
+  // 1. Inline all <link rel="stylesheet" href="...">
+  const cssRegex = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>|<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*>/gi;
+  html = html.replace(cssRegex, (match, p1, p2) => {
+    const href = p1 || p2;
+    if (href.startsWith("http://") || href.startsWith("https://")) return match;
+    const cleanPath = href.replace(/^\.?\//, "");
+    const fullPath = join(frontendDir, cleanPath);
+    if (existsSync(fullPath)) {
+      const cssContent = readFileSync(fullPath, "utf8");
+      return `<style>\n${cssContent}\n</style>`;
+    }
+    return match;
+  });
+
+  // 2. Inline all <script src="..."> (including type="module")
+  const scriptRegex = /<script\s+[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi;
+  html = html.replace(scriptRegex, (match, src) => {
+    if (src.startsWith("http://") || src.startsWith("https://")) return match;
+    const cleanPath = src.replace(/^\.?\//, "");
+    const fullPath = join(frontendDir, cleanPath);
+    if (existsSync(fullPath)) {
+      const jsContent = readFileSync(fullPath, "utf8");
+      return `<script>\n${jsContent}\n</script>`;
+    }
+    return match;
+  });
+
+  return generateHeader(html);
+}
+
+function generateHeader(htmlContent: string): string {
+  const htmlBuffer = Buffer.from(htmlContent, "utf8");
   const byteValues: string[] = [];
   for (let i = 0; i < htmlBuffer.length; i++) {
     byteValues.push(`0x${htmlBuffer[i].toString(16).padStart(2, "0")}`);

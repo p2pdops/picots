@@ -1,7 +1,11 @@
 import { spawn } from "node:child_process";
 import { buildProject, BuildOptions } from "./build.js";
 
-export async function devProject(options: BuildOptions = {}): Promise<void> {
+export interface DevOptions extends BuildOptions {
+  devUrl?: string;
+}
+
+export async function devProject(options: DevOptions = {}): Promise<void> {
   console.log("⚡ [PicoTS] Launching in development mode...");
   const exePath = await buildProject(options);
 

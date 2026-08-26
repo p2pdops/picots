@@ -6,10 +6,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 async function main() {
-  const targetDirName = process.argv[2] || "my-picots-app";
+  const args = process.argv.slice(2);
+  let targetDirName = "my-picots-app";
+  let templateName = "vanilla";
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--template" || args[i] === "-t") {
+      templateName = args[i + 1] || "vanilla";
+      i++;
+    } else if (!args[i].startsWith("-")) {
+      targetDirName = args[i];
+    }
+  }
+
   const targetPath = join(process.cwd(), targetDirName);
 
-  console.log(`\n🚀 [create-picots] Scaffolding new PicoTS desktop app in: ${targetDirName}\n`);
+  console.log(`\n🚀 [create-picots] Scaffolding new PicoTS app (${templateName}) in: ${targetDirName}\n`);
 
   if (existsSync(targetPath)) {
     console.error(`❌ Directory "${targetDirName}" already exists!`);
@@ -17,7 +29,12 @@ async function main() {
   }
 
   mkdirSync(targetPath, { recursive: true });
-  const templatePath = join(__dirname, "..", "templates", "vanilla");
+  
+  let templatePath = join(__dirname, "..", "templates", templateName);
+  if (!existsSync(templatePath)) {
+    console.warn(`⚠️ Template "${templateName}" not found. Falling back to "vanilla".`);
+    templatePath = join(__dirname, "..", "templates", "vanilla");
+  }
 
   cpSync(templatePath, targetPath, { recursive: true });
 
@@ -36,7 +53,18 @@ async function main() {
     writeFileSync(pkgJsonPath, JSON.stringify(pkg, null, 2), "utf8");
   }
 
-  console.log(`✅ Success! Created "${targetDirName}"`);
+  // Update picots.config.json name
+  const cfgJsonPath = join(targetPath, "picots.config.json");
+  if (existsSync(cfgJsonPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(cfgJsonPath, "utf8"));
+      cfg.name = targetDirName;
+      if (cfg.window) cfg.window.title = targetDirName;
+      writeFileSync(cfgJsonPath, JSON.stringify(cfg, null, 2), "utf8");
+    } catch {}
+  }
+
+  console.log(`✅ Success! Created "${targetDirName}" with ${templateName} template.`);
   console.log(`\nNext steps:`);
   console.log(`  cd ${targetDirName}`);
   console.log(`  bun install`);

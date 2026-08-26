@@ -40,12 +40,14 @@ It eliminates the 150MB+ bundle size and high memory bloat of **Electron** while
 
 ### 1. Create a New App
 ```bash
+# Vanilla TypeScript Starter
 bun create picots my-app
-# or
-npx create-picots my-app
+
+# React + Tailwind Starter
+bun create picots my-app --template react
 ```
 
-### 2. Development Mode
+### 2. Development Mode (with Instant Vite HMR)
 ```bash
 cd my-app
 bun install
@@ -55,7 +57,7 @@ bun run dev
 ### 3. Build Production Single Executable
 ```bash
 bun run build
-# Outputs dist/my-app.exe (< 500 KB)
+# Outputs dist/my-app.exe (< 500 KB standalone executable)
 ```
 
 ---
@@ -64,6 +66,7 @@ bun run build
 
 - **[`packages/picots`](./packages/picots)**: The master developer CLI (`picots dev`, `picots build`).
 - **[`packages/core`](./packages/core)**: The developer-facing TypeScript Desktop Runtime SDK (`@picots/core`).
+- **[`packages/vite-plugin`](./packages/vite-plugin)**: Official Vite HMR plugin for React, Vue, and Svelte (`@picots/vite-plugin`).
 - **[`packages/webview`](./packages/webview)**: Native cross-platform WebView host engine (`@picots/webview`).
 - **[`packages/create-picots`](./packages/create-picots)**: Scaffolding starter tool (`create-picots`).
 - **[`examples/starter-app`](./examples/starter-app)**: Ready-to-run reference application.

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://picots.dev/schema.json",
+  "name": "my-picots-react-app",
+  "window": {
+    "title": "PicoTS + React + Tailwind",
+    "width": 1200,
+    "height": 800,
+    "minWidth": 700,
+    "minHeight": 500,
+    "resizable": true,
+    "frameless": true,
+    "icon": "src/assets/icon.ico"
+  },
+  "build": {
+    "outDir": "dist",
+    "frontendDir": "dist-frontend"
+  },
+  "dev": {
+    "url": "http://localhost:5173"
+  }
+}

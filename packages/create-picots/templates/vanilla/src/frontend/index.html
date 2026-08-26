@@ -246,6 +246,45 @@
                 <span class="result-value" id="msg-dialog-status">Ready</span>
               </div>
             </div>
+
+            <!-- Native Clipboard Card -->
+            <div class="glass-panel dialog-card">
+              <div class="panel-header">
+                <h3 class="panel-title">Native OS Clipboard</h3>
+                <span class="panel-tag">Win32 Clipboard</span>
+              </div>
+              <p class="dialog-desc">Reads and writes system clipboard text directly via Win32 <code>OpenClipboard</code> APIs.</p>
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <input type="text" id="clipboard-input" value="Hello from PicoTS!" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-main); font-family: var(--font-sans); font-size: 13px;">
+                <button class="btn btn-primary" id="btn-copy-clipboard" style="padding: 8px 14px;">Copy</button>
+                <button class="btn btn-secondary" id="btn-paste-clipboard" style="padding: 8px 14px;">Paste</button>
+              </div>
+              <div class="dialog-result-box">
+                <span class="result-label">Clipboard Content:</span>
+                <span class="result-value" id="clipboard-result">--</span>
+              </div>
+            </div>
+
+            <!-- Native Shell & Notifications Card -->
+            <div class="glass-panel dialog-card">
+              <div class="panel-header">
+                <h3 class="panel-title">Shell & Notifications</h3>
+                <span class="panel-tag">Shell32 API</span>
+              </div>
+              <p class="dialog-desc">Triggers Windows Action Center notifications and opens external URLs.</p>
+              <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <button class="btn btn-primary" id="btn-send-toast" style="flex: 1;">
+                  <span>🔔 Send Toast</span>
+                </button>
+                <button class="btn btn-secondary" id="btn-open-github" style="flex: 1;">
+                  <span>🌐 Open GitHub</span>
+                </button>
+              </div>
+              <div class="dialog-result-box">
+                <span class="result-label">Status:</span>
+                <span class="result-value" id="shell-status">Ready</span>
+              </div>
+            </div>
           </div>
         </section>
 

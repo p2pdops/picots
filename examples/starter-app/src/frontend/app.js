@@ -57,6 +57,32 @@ window.api = {
       return await window.benchmark();
     }
   },
+
+  async clipboardWrite(text) {
+    if (typeof window.clipboard_write === "function") {
+      return await window.clipboard_write(text);
+    }
+  },
+
+  async clipboardRead() {
+    if (typeof window.clipboard_read === "function") {
+      const raw = await window.clipboard_read();
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    }
+    return { text: "" };
+  },
+
+  async openExternal(url) {
+    if (typeof window.shell_open_external === "function") {
+      return await window.shell_open_external(url);
+    }
+  },
+
+  async notificationSend(title, body) {
+    if (typeof window.notification_send === "function") {
+      return await window.notification_send(body);
+    }
+  },
 };
 
 // Titlebar Window Controls
@@ -151,8 +177,38 @@ document.getElementById("btn-open-file-dialog")?.addEventListener("click", async
 document.getElementById("btn-show-msg-dialog")?.addEventListener("click", async () => {
   const statusEl = document.getElementById("msg-dialog-status");
   if (statusEl) statusEl.textContent = "Modal open on Windows...";
-  await window.api.showMessageBox("ScriptC Desktop", "Hello from Native Windows Message Box!");
+  await window.api.showMessageBox("PicoTS", "Hello from Native Windows Message Box!");
   if (statusEl) statusEl.textContent = "Dialog dismissed by user";
+});
+
+// Clipboard Handlers
+document.getElementById("btn-copy-clipboard")?.addEventListener("click", async () => {
+  const input = document.getElementById("clipboard-input");
+  const text = input ? input.value : "";
+  await window.api.clipboardWrite(text);
+  const resEl = document.getElementById("clipboard-result");
+  if (resEl) resEl.textContent = `Copied "${text}" to Windows Clipboard!`;
+});
+
+document.getElementById("btn-paste-clipboard")?.addEventListener("click", async () => {
+  const res = await window.api.clipboardRead();
+  const resEl = document.getElementById("clipboard-result");
+  if (resEl) resEl.textContent = res?.text ? `Pasted: "${res.text}"` : "Clipboard empty";
+});
+
+// Shell & Notification Handlers
+document.getElementById("btn-send-toast")?.addEventListener("click", async () => {
+  const statusEl = document.getElementById("shell-status");
+  if (statusEl) statusEl.textContent = "Sending toast notification...";
+  await window.api.notificationSend("PicoTS", "Hello from Native Windows Action Center!");
+  if (statusEl) statusEl.textContent = "Toast notification dispatched!";
+});
+
+document.getElementById("btn-open-github")?.addEventListener("click", async () => {
+  const statusEl = document.getElementById("shell-status");
+  if (statusEl) statusEl.textContent = "Opening browser...";
+  await window.api.openExternal("https://github.com/p2pdops/picots");
+  if (statusEl) statusEl.textContent = "Opened GitHub in default browser!";
 });
 
 // Native File Explorer
