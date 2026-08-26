@@ -7,7 +7,7 @@ export type IpcMainHandler = (event: IpcMainInvokeEvent, ...args: any[]) => any 
 export type IpcRendererListener = (event: any, ...args: any[]) => void;
 
 export interface ElectronAPIBridge {
-  [channel: string]: any;
+  [channel: string]: ((...args: any[]) => Promise<any>) | any;
   invoke(channel: string, ...args: any[]): Promise<any>;
   send(channel: string, ...args: any[]): void;
   on(channel: string, listener: IpcRendererListener): any;
@@ -18,9 +18,9 @@ export interface ElectronAPIBridge {
 
 declare global {
   interface Window {
-    electronAPI?: ElectronAPIBridge;
-    picotsAPI?: ElectronAPIBridge;
-    ipcRenderer?: IpcRendererManager;
+    electronAPI: ElectronAPIBridge;
+    picotsAPI: ElectronAPIBridge;
+    ipcRenderer: IpcRendererManager;
   }
 }
 

@@ -31,6 +31,14 @@ import { protocol } from "./protocol";
 import { Database } from "./sqlite";
 import { defineConfig } from "./config";
 
+export const contextBridge = {
+  exposeInMainWorld(apiKey: string, api: any): void {
+    if (typeof window !== "undefined") {
+      (window as any)[apiKey] = api;
+    }
+  },
+};
+
 export const picots = {
   app,
   BrowserWindow,
@@ -47,6 +55,7 @@ export const picots = {
   MenuItem,
   ipcMain,
   ipcRenderer,
+  contextBridge,
   screen,
   globalShortcut,
   nativeTheme,
@@ -64,7 +73,7 @@ if (typeof process !== "undefined" && !(process as any).resourcesPath) {
 declare global {
   namespace NodeJS {
     interface Process {
-      resourcesPath?: string;
+      resourcesPath: string;
     }
   }
 
@@ -85,6 +94,7 @@ declare global {
     export type Dialog = typeof dialog;
     export type Shell = typeof shell;
     export type Clipboard = typeof clipboard;
+    export const contextBridge: typeof import("./index").contextBridge;
   }
 }
 

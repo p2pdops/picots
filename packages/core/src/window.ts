@@ -160,17 +160,27 @@ export class BrowserWindow {
     },
     getZoomFactor: (): number => 1.0,
     setWindowOpenHandler: (handler: (details: { url: string }) => { action: 'allow' | 'deny' }) => {},
-    on: (event: string, listener: Function) => {},
-    once: (event: string, listener: Function) => {},
-    removeListener: (event: string, listener: Function) => {},
+    on: (event: string, listener: (event: any, ...args: any[]) => any) => {},
+    once: (event: string, listener: (event: any, ...args: any[]) => any) => {},
+    removeListener: (event: string, listener: (event: any, ...args: any[]) => any) => {},
     print: async (options: PrintOptions = {}, callback?: (success: boolean, failureReason?: string) => void) => {
       if (typeof (globalThis as any).eval === "function") {
         (globalThis as any).eval("window.print()");
         if (callback) callback(true);
       }
     },
-    printToPDF: async (options: PrintToPDFOptions = {}): Promise<string> => {
-      return "data:application/pdf;base64,";
+    printToPDF: async (options: PrintToPDFOptions = {}): Promise<Buffer> => {
+      return Buffer.from("%PDF-1.4\n%%EOF");
+    },
+    capturePage: async (rect?: any): Promise<any> => {
+      return {
+        toPNG: () => Buffer.from(""),
+        toJPEG: (quality?: number) => Buffer.from(""),
+        toBitmap: () => Buffer.from(""),
+        toDataURL: () => "data:image/png;base64,",
+        isEmpty: () => false,
+        getSize: () => ({ width: 440, height: 900 }),
+      };
     },
     getPrintersAsync: async (): Promise<PrinterInfo[]> => {
       return [
@@ -184,6 +194,10 @@ export class BrowserWindow {
       ];
     },
   };
+
+  destroy(): void {
+    this.close();
+  }
 
   constructor(options: BrowserWindowConstructorOptions = {}) {
     this.title = options.title || "PicoTS App";
