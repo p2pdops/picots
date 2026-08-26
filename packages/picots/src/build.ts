@@ -91,6 +91,8 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 #include <string>
 #include <sstream>
 #include <vector>
+#include <map>
+#include <cctype>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -103,11 +105,49 @@ namespace fs = std::filesystem;
 static NOTIFYICONDATAW g_tray_nid = {0};
 static bool g_tray_created = false;
 static WNDPROC g_original_wndproc = nullptr;
+static std::map<int, std::string> g_hotkey_map;
+static int g_hotkey_counter = 100;
+static webview::webview* g_pWebview = nullptr;
+
+UINT ParseModifiers(const std::string& accel) {
+    UINT mod = 0;
+    if (accel.find("Ctrl") != std::string::npos || accel.find("Control") != std::string::npos || accel.find("Command") != std::string::npos) mod |= MOD_CONTROL;
+    if (accel.find("Shift") != std::string::npos) mod |= MOD_SHIFT;
+    if (accel.find("Alt") != std::string::npos) mod |= MOD_ALT;
+    if (accel.find("Super") != std::string::npos || accel.find("Meta") != std::string::npos) mod |= MOD_WIN;
+    return mod;
+}
+
+UINT ParseVK(const std::string& accel) {
+    size_t plus = accel.rfind('+');
+    std::string key = (plus != std::string::npos) ? accel.substr(plus + 1) : accel;
+    if (key.length() == 1) {
+        char c = (char)toupper(key[0]);
+        if (c >= 'A' && c <= 'Z') return c;
+        if (c >= '0' && c <= '9') return c;
+    }
+    if (key == "F1") return VK_F1;
+    if (key == "F2") return VK_F2;
+    if (key == "F3") return VK_F3;
+    if (key == "F4") return VK_F4;
+    if (key == "F5") return VK_F5;
+    if (key == "F6") return VK_F6;
+    if (key == "F7") return VK_F7;
+    if (key == "F8") return VK_F8;
+    if (key == "F9") return VK_F9;
+    if (key == "F10") return VK_F10;
+    if (key == "F11") return VK_F11;
+    if (key == "F12") return VK_F12;
+    if (key == "Space") return VK_SPACE;
+    if (key == "Enter" || key == "Return") return VK_RETURN;
+    if (key == "Escape" || key == "Esc") return VK_ESCAPE;
+    return 0;
+}
 
 std::string EscapeJson(const std::string& s) {
     std::ostringstream o;
     for (char c : s) {
-        if (c == '"') o << "\\\\\\"";
+        if (c == '"') o << "\\\\\\\"";
         else if (c == '\\\\') o << "\\\\\\\\";
         else if (c == '\\b') o << "\\\\b";
         else if (c == '\\f') o << "\\\\f";
@@ -126,9 +166,9 @@ std::string EscapeJson(const std::string& s) {
 std::string ExtractFirstArg(const std::string& req) {
     std::string s = req;
     if (s.length() >= 4 && s.front() == '[' && s.back() == ']') {
-        size_t q1 = s.find("\\"");
+        size_t q1 = s.find("\\\"");
         if (q1 != std::string::npos) {
-            size_t q2 = s.find("\\"", q1 + 1);
+            size_t q2 = s.find("\\\"", q1 + 1);
             if (q2 != std::string::npos) {
                 return s.substr(q1 + 1, q2 - q1 - 1);
             }
@@ -138,6 +178,15 @@ std::string ExtractFirstArg(const std::string& req) {
 }
 
 LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_HOTKEY) {
+        int id = (int)wParam;
+        auto it = g_hotkey_map.find(id);
+        if (it != g_hotkey_map.end() && g_pWebview) {
+            std::string js = "window.__picots_hotkey_trigger && window.__picots_hotkey_trigger(\\\"" + EscapeJson(it->second) + "\\\");";
+            g_pWebview->eval(js);
+        }
+        return 0;
+    }
     if (uMsg == WM_TRAYICON) {
         if (lParam == WM_RBUTTONUP) {
             POINT pt;
@@ -181,13 +230,26 @@ LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    // 0. Single-Instance Mutex Lock
+    HANDLE hMutex = CreateMutexW(NULL, TRUE, L"Local\\\\PicoTS_App_${appName}");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        HWND hExisting = FindWindowW(NULL, L"${title}");
+        if (hExisting) {
+            ShowWindow(hExisting, SW_RESTORE);
+            SetForegroundWindow(hExisting);
+        }
+        if (hMutex) CloseHandle(hMutex);
+        return 0;
+    }
+
     webview::webview w(true, nullptr);
+    g_pWebview = &w;
     w.set_title("${title}");
     w.set_size(${width}, ${height}, ${winHint});
 
     HWND hwnd = (HWND)w.window().value();
 
-    // Subclass window procedure to receive System Tray messages
+    // Subclass window procedure to receive System Tray and Hotkey messages
     g_original_wndproc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)TraySubclassProc);
 
     // 1. System Info
@@ -461,7 +523,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 13. Benchmark
+    // 13. Global Hotkey Accelerators
+    w.bind("global_shortcut_register", [hwnd](const std::string& req) -> std::string {
+        std::string accel = ExtractFirstArg(req);
+        if (accel.empty()) return "{\\"status\\":\\"error\\"}";
+        UINT mod = ParseModifiers(accel);
+        UINT vk = ParseVK(accel);
+        if (vk == 0) return "{\\"status\\":\\"error\\"}";
+        int id = ++g_hotkey_counter;
+        if (RegisterHotKey(hwnd, id, mod, vk)) {
+            g_hotkey_map[id] = accel;
+            return "{\\"status\\":\\"ok\\"}";
+        }
+        return "{\\"status\\":\\"error\\"}";
+    });
+    w.bind("global_shortcut_unregister", [hwnd](const std::string& req) -> std::string {
+        std::string accel = ExtractFirstArg(req);
+        for (auto it = g_hotkey_map.begin(); it != g_hotkey_map.end(); ++it) {
+            if (it->second == accel) {
+                UnregisterHotKey(hwnd, it->first);
+                g_hotkey_map.erase(it);
+                break;
+            }
+        }
+        return "{\\"status\\":\\"ok\\"}";
+    });
+
+    // 14. Benchmark
     w.bind("benchmark", [](const std::string&) -> std::string {
         return "{\\"status\\":\\"ok\\"}";
     });
