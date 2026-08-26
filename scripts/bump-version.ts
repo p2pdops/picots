@@ -35,7 +35,7 @@ for (const dir of packageDirs) {
     for (const depType of ["dependencies", "devDependencies", "peerDependencies"]) {
       if (pkg[depType]) {
         for (const dep of Object.keys(pkg[depType])) {
-          if (dep.startsWith("@picots/") && pkg[depType][dep] !== "workspace:*") {
+          if (dep.startsWith("@picots/")) {
             pkg[depType][dep] = `^${targetVersion}`;
           }
         }
