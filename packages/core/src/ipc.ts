@@ -101,8 +101,8 @@ export class IpcRendererManager {
         }
       };
 
-      // Standard Electron Preload window.electronAPI drop-in compatibility
-      const apiBridge = {
+      // Standard Electron Preload window.electronAPI drop-in compatibility with dynamic channel proxy
+      const baseBridge: any = {
         invoke: (channel: string, ...args: any[]) => this.invoke(channel, ...args),
         send: (channel: string, ...args: any[]) => this.send(channel, ...args),
         on: (channel: string, listener: IpcRendererListener) => this.on(channel, listener),
@@ -110,6 +110,19 @@ export class IpcRendererManager {
         removeListener: (channel: string, listener: IpcRendererListener) => this.removeListener(channel, listener),
         removeAllListeners: (channel?: string) => this.removeAllListeners(channel),
       };
+
+      const apiBridge = new Proxy(baseBridge, {
+        get: (target: any, prop: string | symbol) => {
+          if (typeof prop === "string" && prop in target) {
+            return target[prop];
+          }
+          if (typeof prop === "string") {
+            // Supports window.electronAPI['pos:save-invoice'](...args)
+            return (...args: any[]) => this.invoke(prop, ...args);
+          }
+          return target[prop];
+        },
+      });
 
       (window as any).electronAPI = (window as any).electronAPI || apiBridge;
       (window as any).picotsAPI = (window as any).picotsAPI || apiBridge;
