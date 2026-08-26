@@ -1,31 +1,19 @@
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { buildProject } from "./build.js";
 import { devProject } from "./dev.js";
-
-function getAppName(): string {
-  const pkgPath = join(process.cwd(), "package.json");
-  if (existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-      if (pkg.name) return pkg.name.replace(/[^a-zA-Z0-9_-]/g, "-");
-    } catch {}
-  }
-  return "picots-app";
-}
+import { loadConfig } from "./config.js";
 
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "help";
-  const appName = getAppName();
+  const config = loadConfig(process.cwd());
 
   switch (command) {
     case "build":
-      await buildProject({ name: appName });
+      await buildProject({ config });
       break;
 
     case "dev":
-      await devProject({ name: appName });
+      await devProject({ config });
       break;
 
     case "version":

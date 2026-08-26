@@ -1,28 +1,35 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { inlineAssetsToHeader } from "./inliner.js";
+import { loadConfig } from "./config.js";
 import { webviewPaths } from "@picots/webview";
+import type { PicotsConfig } from "@picots/core";
 
 export interface BuildOptions {
   cwd?: string;
-  outDir?: string;
-  name?: string;
+  config?: PicotsConfig;
 }
 
 export async function buildProject(options: BuildOptions = {}): Promise<string> {
   const cwd = options.cwd || process.cwd();
-  const outDir = options.outDir || join(cwd, "dist");
-  const appName = options.name || "picots-app";
-  const frontendDir = join(cwd, "src", "frontend");
-  const tempDir = join(cwd, ".picots");
+  const config = options.config || loadConfig(cwd);
+
+  const appName = config.name || "picots-app";
+  const winConfig = config.window || {};
+  const buildConfig = config.build || {};
+
+  const outDir = resolve(cwd, buildConfig.outDir || "dist");
+  const frontendDir = resolve(cwd, buildConfig.frontendDir || "src/frontend");
+  const tempDir = resolve(cwd, ".picots");
 
   console.log(`\n🚀 [PicoTS] Building ${appName}...`);
+  console.log(`   📐 Window: ${winConfig.width}x${winConfig.height} ("${winConfig.title}")`);
 
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
   if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
 
-  // 1. Terminate any previous instance
+  // 1. Terminate any previous instance to release Windows file locks
   if (process.platform === "win32") {
     try {
       execSync(`powershell -Command "Get-Process ${appName} -ErrorAction SilentlyContinue | Stop-Process -Force"`, {
@@ -37,7 +44,31 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
   const headerPath = join(tempDir, "embedded_html.h");
   writeFileSync(headerPath, embeddedHeader, "utf8");
 
-  // 3. Generate native host source
+  // 3. Compile Windows Icon Resource (.rc -> .res.o) via windres if icon exists
+  let resourceObjectParam = "";
+  if (process.platform === "win32") {
+    let iconPath = winConfig.icon ? resolve(cwd, winConfig.icon) : join(cwd, "src", "assets", "icon.ico");
+    if (existsSync(iconPath)) {
+      try {
+        console.log(`🖼️  Embedding native application icon: ${iconPath}`);
+        const rcPath = join(tempDir, "app.rc");
+        const resPath = join(tempDir, "app_res.o");
+        // Windows resource icon index 1
+        writeFileSync(rcPath, `1 ICON "${iconPath.replace(/\\/g, "/")}"\n`, "utf8");
+        execSync(`windres "${rcPath}" -O coff -o "${resPath}"`, { stdio: "inherit" });
+        resourceObjectParam = `"${resPath}"`;
+      } catch (err) {
+        console.warn("⚠️ [PicoTS] Failed to compile icon with windres (continuing without icon):", err);
+      }
+    }
+  }
+
+  // 4. Generate native host source with configured dimensions and title
+  const winHint = winConfig.resizable === false ? "WEBVIEW_HINT_FIXED" : "WEBVIEW_HINT_NONE";
+  const title = (winConfig.title || appName).replace(/"/g, '\\"');
+  const width = winConfig.width || 1180;
+  const height = winConfig.height || 780;
+
   const nativeSource = `
 #include "webview.h"
 #include "${headerPath.replace(/\\/g, "/")}"
@@ -72,8 +103,8 @@ std::string EscapeJson(const std::string& s) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     webview::webview w(false, nullptr);
-    w.set_title("${appName}");
-    w.set_size(1180, 780, WEBVIEW_HINT_NONE);
+    w.set_title("${title}");
+    w.set_size(${width}, ${height}, ${winHint});
 
     HWND hwnd = (HWND)w.window().value();
 
@@ -120,7 +151,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     });
 
     w.bind("show_message_dialog", [hwnd](const std::string&) -> std::string {
-        MessageBoxW(hwnd, L"Hello from ${appName}!", L"${appName}", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(hwnd, L"Hello from ${appName}!", L"${title}", MB_OK | MB_ICONINFORMATION);
         return "{\\"status\\":\\"ok\\"}";
     });
 
@@ -184,14 +215,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
   const hostSrcPath = join(tempDir, "host.cc");
   writeFileSync(hostSrcPath, nativeSource, "utf8");
 
-  // 4. Compile with g++
+  // 5. Compile with g++ (linking static webview2 loader + icon resource)
   console.log("🔨 Compiling single standalone binary...");
   const finalExe = join(outDir, `${appName}.exe`);
 
   const includeDir = webviewPaths.includeDir;
   const staticLib = webviewPaths.windowsStaticLib;
 
-  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" "${staticLib}" -lole32 -lshlwapi -lversion -ladvapi32 -luser32 -lcomdlg32 -o "${finalExe}"`;
+  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" ${resourceObjectParam} "${staticLib}" -lole32 -lshlwapi -lversion -ladvapi32 -luser32 -lcomdlg32 -o "${finalExe}"`;
   execSync(compileCmd, { stdio: "inherit" });
 
   console.log(`\n🎉 [PicoTS] Build complete: ${finalExe}\n`);

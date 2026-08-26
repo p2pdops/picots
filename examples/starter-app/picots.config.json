@@ -1,0 +1,18 @@
+{
+  "$schema": "https://picots.dev/schema.json",
+  "name": "starter-app",
+  "window": {
+    "title": "PicoTS Desktop",
+    "width": 1180,
+    "height": 780,
+    "minWidth": 600,
+    "minHeight": 400,
+    "resizable": true,
+    "frameless": true,
+    "icon": "src/assets/icon.ico"
+  },
+  "build": {
+    "outDir": "dist",
+    "frontendDir": "src/frontend"
+  }
+}
