@@ -133,6 +133,7 @@ PicoTS completely eliminates localhost HTTP servers (`http://127.0.0.1:PORT`):
 
 ## 📚 In-Depth Documentation
 
+- **[`docs/MIGRATING_FROM_ELECTRON.md`](./docs/MIGRATING_FROM_ELECTRON.md)**: 5-minute migration guide for developers switching from Electron to PicoTS.
 - **[`docs/HOW_WE_BUILT_PICOTS_POC.md`](./docs/HOW_WE_BUILT_PICOTS_POC.md)**: Detailed step-by-step engineering retrospective explaining how the proof-of-concept was designed, compiled, and benchmarked.
 - **[`docs/PICOTS_ARCHITECTURE_SPEC.md`](./docs/PICOTS_ARCHITECTURE_SPEC.md)**: Complete architectural specification for the `@picots/*` ecosystem and 1.0 roadmap.
 

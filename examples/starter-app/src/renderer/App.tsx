@@ -1,9 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { app, Window, dialog, fs, clipboard, shell, notification, tray, SystemInfo, ListFilesResult } from "@picots/core";
+import { 
+  app, 
+  BrowserWindow, 
+  dialog, 
+  fs, 
+  clipboard, 
+  shell, 
+  notification, 
+  tray, 
+  ipcRenderer,
+  SystemInfo, 
+  ListFilesResult 
+} from "@picots/core";
 
-const win = new Window();
+// Reference to current window
+const win = new BrowserWindow();
 
-type TabType = "dashboard" | "native-os" | "files" | "benchmark" | "architecture";
+type TabType = "dashboard" | "ipc-main" | "native-os" | "files" | "benchmark";
+
+interface UserProfile {
+  id: string;
+  name: string;
+  role: string;
+  stack: string;
+  openPorts: number;
+  binarySize: string;
+  memoryUsageMb: number;
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
@@ -15,6 +38,11 @@ export default function App() {
   const [notificationStatus, setNotificationStatus] = useState<string>("");
   const [trayStatus, setTrayStatus] = useState<string>("");
   
+  // IPC Main state (Demonstrating ipcRenderer.invoke -> ipcMain.handle)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [hashInput, setHashInput] = useState<string>("PicoTS Fast Native IPC");
+  const [hashResult, setHashResult] = useState<{ input: string; hash: string } | null>(null);
+
   // File Explorer State
   const [fileData, setFileData] = useState<ListFilesResult | null>(null);
   const [currentDir, setCurrentDir] = useState<string>("");
@@ -32,6 +60,7 @@ export default function App() {
         loadFiles(info.cwd);
       }
     });
+    fetchUserProfile();
     measureLatency();
   }, []);
 
@@ -39,6 +68,26 @@ export default function App() {
     const t0 = performance.now();
     await app.benchmark();
     setLatency((performance.now() - t0).toFixed(3) + " ms");
+  };
+
+  const fetchUserProfile = async () => {
+    try {
+      // Calls ipcMain.handle("get-user-profile") in src/main/index.ts!
+      const profile = await ipcRenderer.invoke("get-user-profile", "usr_picots_01");
+      setUserProfile(profile);
+    } catch (err) {
+      console.error("fetchUserProfile error:", err);
+    }
+  };
+
+  const handleComputeHash = async () => {
+    try {
+      // Calls ipcMain.handle("compute-hash") in src/main/index.ts!
+      const res = await ipcRenderer.invoke("compute-hash", hashInput);
+      setHashResult(res);
+    } catch (err) {
+      console.error("computeHash error:", err);
+    }
   };
 
   const loadFiles = async (dir: string) => {
@@ -51,9 +100,9 @@ export default function App() {
   };
 
   const handleOpenFile = async () => {
-    const res = await dialog.openFile({ title: "Select a File" });
-    if (!res.canceled) {
-      setSelectedFilePath(res.path);
+    const res = await dialog.showOpenDialog(win, { title: "Select a File" });
+    if (!res.canceled && res.filePaths.length > 0) {
+      setSelectedFilePath(res.filePaths[0]);
     }
   };
 
@@ -170,6 +219,18 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setActiveTab("ipc-main")}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === "ipc-main"
+                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              <span>🔄</span>
+              <span>ipcMain &amp; ipcRenderer</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("native-os")}
               className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
                 activeTab === "native-os"
@@ -208,9 +269,9 @@ export default function App() {
 
           {/* Sidebar Footer Metrics */}
           <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1 text-[11px] font-mono">
-            <div className="text-slate-500 uppercase tracking-wider text-[10px]">IPC Transport</div>
-            <div className="text-cyan-400 font-bold">Zero-HTTP Direct COM</div>
-            <div className="text-slate-400 mt-1">Latency: <span className="text-emerald-400">{latency}</span></div>
+            <div className="text-slate-500 uppercase tracking-wider text-[10px]">Architecture</div>
+            <div className="text-cyan-400 font-bold">src/main + src/renderer</div>
+            <div className="text-slate-400 mt-1">COM Roundtrip: <span className="text-emerald-400">{latency}</span></div>
           </div>
         </aside>
 
@@ -223,15 +284,15 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">
-                      ⚡ React 19 + Tailwind + Vite HMR
+                      ⚡ React 19 + Electron-Compatible Architecture
                     </span>
                     <h1 className="text-2xl font-bold mt-2 text-white">PicoTS React Desktop</h1>
                     <p className="text-slate-400 text-sm mt-1">
-                      100% TypeScript. Zero Node.js runtime bloat. Sub-megabyte standalone executable.
+                      Main Process (<code>src/main/index.ts</code>) + Renderer (<code>src/renderer/App.tsx</code>).
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-slate-400 font-mono">COM Latency</div>
+                    <div className="text-xs text-slate-400 font-mono">IPC Roundtrip</div>
                     <div className="text-2xl font-bold font-mono text-cyan-400">{latency}</div>
                   </div>
                 </div>
@@ -272,7 +333,85 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 2: NATIVE OS APIS */}
+          {/* TAB 2: IPC MAIN & IPC RENDERER SHOWCASE */}
+          {activeTab === "ipc-main" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-white">ipcMain &amp; ipcRenderer Bridge</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  React calls <code>ipcRenderer.invoke(channel)</code> ➔ Handled by <code>ipcMain.handle(channel)</code> in <code>src/main/index.ts</code> over in-memory COM.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
+                {/* Profile IPC Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200">Main Process User Profile</h3>
+                    <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      ipcMain.handle
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Fetched from backend process via <code>ipcRenderer.invoke("get-user-profile")</code>.
+                  </p>
+                  
+                  {userProfile && (
+                    <div className="p-3 bg-black/40 rounded-lg border border-white/5 space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between"><span className="text-slate-500">Name:</span> <span className="text-white font-bold">{userProfile.name}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Role:</span> <span className="text-cyan-400">{userProfile.role}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Stack:</span> <span className="text-emerald-400">{userProfile.stack}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">RAM Overhead:</span> <span className="text-purple-400">{userProfile.memoryUsageMb} MB</span></div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={fetchUserProfile}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black transition-colors"
+                  >
+                    🔄 Re-fetch Profile from Main Process
+                  </button>
+                </div>
+
+                {/* Compute Hash IPC Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200">Backend Hash Calculation</h3>
+                    <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      ipcRenderer.invoke
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Sends string to main process, computes hash in native backend, returns result.
+                  </p>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={hashInput}
+                      onChange={(e) => setHashInput(e.target.value)}
+                      className="flex-1 px-3 py-1.5 text-xs bg-black/40 border border-white/10 rounded-lg text-white outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      onClick={handleComputeHash}
+                      className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-purple-500 text-white hover:bg-purple-400"
+                    >
+                      Hash in Main
+                    </button>
+                  </div>
+
+                  {hashResult && (
+                    <div className="p-3 bg-black/40 rounded-lg border border-white/5 space-y-1 text-xs font-mono">
+                      <div className="text-slate-500">Computed Hash:</div>
+                      <div className="text-emerald-400 font-bold text-sm">{hashResult.hash}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: NATIVE OS APIS */}
           {activeTab === "native-os" && (
             <div className="space-y-6">
               <h2 className="text-xl font-bold text-white">Native OS Integrations</h2>
@@ -300,7 +439,7 @@ export default function App() {
                   <h3 className="text-sm font-bold text-slate-200">Native Message Box</h3>
                   <p className="text-xs text-slate-400">Displays a Win32 <code>MessageBoxW</code> modal alert.</p>
                   <button
-                    onClick={() => dialog.showMessage("PicoTS React", "Hello from Native Windows Message Box!")}
+                    onClick={() => dialog.showMessageBox(win, { title: "PicoTS React", message: "Hello from Native Windows Message Box!" })}
                     className="px-4 py-2 text-xs font-semibold rounded-lg bg-white/10 hover:bg-white/15 text-white transition-colors"
                   >
                     Trigger Windows Alert
@@ -372,7 +511,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 3: FILE EXPLORER */}
+          {/* TAB 4: FILE EXPLORER */}
           {activeTab === "files" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -408,7 +547,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 4: DIRECT COM BENCHMARK */}
+          {/* TAB 5: DIRECT COM BENCHMARK */}
           {activeTab === "benchmark" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">

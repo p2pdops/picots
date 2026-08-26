@@ -6,20 +6,23 @@ export * from "./clipboard";
 export * from "./shell";
 export * from "./notification";
 export * from "./tray";
+export * from "./ipc";
 export * from "./config";
 
 import { app } from "./app";
-import { Window } from "./window";
+import { BrowserWindow, Window } from "./window";
 import { dialog } from "./dialog";
 import { fs } from "./fs";
 import { clipboard } from "./clipboard";
 import { shell } from "./shell";
 import { notification } from "./notification";
-import { tray } from "./tray";
+import { tray, Tray, Menu } from "./tray";
+import { ipcMain, ipcRenderer } from "./ipc";
 import { defineConfig } from "./config";
 
 export const picots = {
   app,
+  BrowserWindow,
   Window,
   dialog,
   fs,
@@ -27,6 +30,10 @@ export const picots = {
   shell,
   notification,
   tray,
+  Tray,
+  Menu,
+  ipcMain,
+  ipcRenderer,
   defineConfig,
 };
 
