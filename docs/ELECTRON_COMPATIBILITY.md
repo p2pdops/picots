@@ -1,8 +1,8 @@
 # 🔄 Complete Electron API Compatibility & Architectural Audit
 
-This document is the official, transparent scorecard comparing **PicoTS** against the complete API surface of **Electron**. 
+This document is the official, transparent scorecard comparing **PicoTS (v0.0.11)** against the complete API surface of **Electron**. 
 
-PicoTS is designed as an ultra-lightweight (< 700 KB) drop-in replacement for the **essential 80% of Electron APIs** used by modern web/desktop applications, while purposefully avoiding the 150MB+ bundle overhead of bundling full Chromium and Node.js runtimes.
+PicoTS is designed as an ultra-lightweight (< 700 KB) drop-in replacement for the **essential 85%+ of Electron APIs** used by modern web/desktop applications, while purposefully avoiding the 150MB+ bundle overhead of bundling full Chromium and Node.js runtimes.
 
 ---
 
@@ -13,11 +13,15 @@ PicoTS is designed as an ultra-lightweight (< 700 KB) drop-in replacement for th
 │ Subsystem Category                                      │ Support Status       │ Coverage & Implementation in PicoTS      │
 ├─────────────────────────────────────────────────────────┼──────────────────────┼──────────────────────────────────────────┤
 │ 1. Everyday Core APIs (Window, IPC, Dialogs, Tray)      │ 🟢 Fully Supported   │ 100% Drop-in TypeScript / Win32 / COM    │
-│ 2. Preload & Frontend Bridge (window.electronAPI)       │ 🟢 Fully Supported   │ Zero changes required in React/Vue code  │
-│ 3. Native OS Integration (Clipboard, Shell, Theme)     │ 🟢 Fully Supported   │ Native OS APIs without Node.js bloat     │
-│ 4. Background Updaters & Deep Protocols (myapp://)      │ 🟡 In Progress       │ Planned for v0.2.0 – v1.0.0 milestones   │
-│ 5. Deep Chromium Internals (session, desktopCapturer)   │ 🔴 Not Supported     │ Use Web Standards (WebRTC, fetch, WASM)  │
-│ 6. Node.js Native C++ Addons (.node binary modules)     │ 🔴 Not Supported     │ Use Pure WebAssembly / Pure TypeScript   │
+│ 2. Real Win32 OS HWND Host Bindings (Size, Pos, Opacity)│ 🟢 Fully Supported   │ Real SetWindowPos, WS_EX_LAYERED in C++  │
+│ 3. Preload & Frontend Bridge (window.electronAPI)       │ 🟢 Fully Supported   │ Zero changes required in React/Vue code  │
+│ 4. Native OS Integration (Clipboard, Shell, Theme)     │ 🟢 Fully Supported   │ Native OS APIs without Node.js bloat     │
+│ 5. Global Hotkeys & Single-Instance Lock                │ 🟢 Fully Supported   │ Real Win32 Named Mutex & RegisterHotKey  │
+│ 6. Custom Virtual Schemes (protocol.handle)             │ 🟢 Fully Supported   │ Modern Fetch-based URI scheme intercept  │
+│ 7. Embedded Offline Database Storage (Database)         │ 🟢 Built-in Engine   │ Drop-in better-sqlite3 API, zero rebuild │
+│ 8. Background Updaters & Deep System Monitors           │ 🟡 In Progress       │ Planned for v0.2.0 – v1.0.0 milestones   │
+│ 9. Deep Chromium Internals (session, desktopCapturer)   │ 🔴 Not Supported     │ Use Web Standards (WebRTC, fetch, WASM)  │
+│ 10. Node.js Native C++ Addons (.node binary modules)    │ 🔴 Not Supported     │ Use Pure WebAssembly / Pure TypeScript   │
 └─────────────────────────────────────────────────────────┴──────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -29,19 +33,21 @@ These modules cover the functionality required by the vast majority of desktop S
 
 | Electron Module | PicoTS Equivalent | Status | Details |
 | :--- | :--- | :---: | :--- |
-| **`BrowserWindow`** | `BrowserWindow` | 🟢 Supported | Window framing, sizing (`setSize`, `getSize`), positioning (`setPosition`, `getPosition`), `center()`, `minimize()`, `maximize()`, `close()`, `setAlwaysOnTop()`, `setOpacity()`, `setMinimumSize()`, `setMaximumSize()`, `setFullScreen()`. |
-| **`app`** | `app` | 🟢 Supported | Lifecycle (`whenReady()`, `quit()`, `exit()`), metadata (`getName()`, `getVersion()`), paths (`getPath("userData")`, `appData`, `home`, `temp`), single-instance lock (`requestSingleInstanceLock()`). |
+| **`BrowserWindow`** | `BrowserWindow` | 🟢 Supported (Win32 Bound) | Window framing, sizing (`setSize`, `getSize`), positioning (`setPosition`, `getPosition`), `center()`, `minimize()`, `maximize()`, `close()`, `setAlwaysOnTop()`, `setOpacity()`, `setMinimumSize()`, `setMaximumSize()`, `setFullScreen()`, `flashFrame()`. |
+| **`app`** | `app` | 🟢 Supported (Win32 Bound) | Lifecycle (`whenReady()`, `quit()`, `exit()`), metadata (`getName()`, `getVersion()`), paths (`getPath("userData")`, `appData`, `home`, `temp`), single-instance lock (`requestSingleInstanceLock()` via Named Mutex). |
 | **`ipcMain`** | `ipcMain` | 🟢 Supported | Two-way async IPC (`ipcMain.handle(ch, fn)`), fire-and-forget (`ipcMain.on(ch, fn)`), `removeHandler()`, `removeAllListeners()`. |
 | **`ipcRenderer`** | `ipcRenderer` | 🟢 Supported | `ipcRenderer.invoke(ch, ...args)`, `ipcRenderer.send()`, `ipcRenderer.on()`, `ipcRenderer.removeListener()`. |
 | **`contextBridge`** | Automatic `window.electronAPI` | 🟢 Supported | Automatically exposes `window.electronAPI`, `window.picotsAPI`, and `window.ipcRenderer` globally in the browser environment. |
 | **`dialog`** | `dialog` | 🟢 Supported | Native `showOpenDialog()` (files & folders), `showSaveDialog()`, `showMessageBox()` (info, error, warning modals). |
 | **`Tray` & `Menu`** | `Tray` & `Menu` | 🟢 Supported | System notification tray icons (`new Tray(ico)`), tooltips (`setToolTip()`), right-click menus (`Menu.buildFromTemplate()`). |
+| **`globalShortcut`** | `globalShortcut` | 🟢 Supported (Win32 Bound) | System-wide keyboard hotkeys (`register("Ctrl+Shift+K", cb)` via Win32 `RegisterHotKey`). |
+| **`protocol`** | `protocol` | 🟢 Supported | Modern Fetch-based `protocol.handle(scheme, fn)` and legacy `registerFileProtocol` / `registerBufferProtocol`. |
+| **`Database` (SQLite)** | `Database` | 🟢 Built-in | Drop-in `better-sqlite3` compatible API (`prepare()`, `run()`, `get()`, `all()`, `transaction()`) with zero ABI rebuilds. |
 | **`clipboard`** | `clipboard` | 🟢 Supported | System clipboard operations (`readText()`, `writeText()`, `clear()`). |
 | **`shell`** | `shell` | 🟢 Supported | `openExternal(url)` (opens default browser), `showItemInFolder(path)`, `openPath(path)`, `beep()`. |
 | **`Notification`** | `Notification` | 🟢 Supported | Native desktop toast alerts (`new Notification({ title, body }).show()`). |
 | **`screen`** | `screen` | 🟢 Supported | Multi-monitor display queries (`getPrimaryDisplay()`, `getAllDisplays()`, `getCursorScreenPoint()`). |
 | **`nativeTheme`** | `nativeTheme` | 🟢 Supported | OS dark/light mode detection (`shouldUseDarkColors`, `themeSource`, `on("updated")`). |
-| **`globalShortcut`** | `globalShortcut` | 🟢 Supported | Global keyboard hotkeys (`register("Ctrl+Shift+K", cb)`). |
 | **`webFrame`** | `webFrame` | 🟢 Supported | Zoom scale and DPI factor adjustments (`setZoomFactor()`). |
 
 ---
@@ -50,7 +56,6 @@ These modules cover the functionality required by the vast majority of desktop S
 
 | Module | What It Does in Electron | Status in PicoTS | Roadmap Milestone |
 | :--- | :--- | :---: | :--- |
-| **`protocol`** | Custom virtual URI schemes (`app://bundle/*`) | 🟡 In Progress | Milestone 6 (Custom WebView2/WebKit WebResourceInterception). |
 | **`autoUpdater`** | Background binary delta updates | 🟡 Planned | v1.0.0 (GitHub Releases auto-updater). |
 | **`powerMonitor`** | OS sleep / wake / battery broadcast events | 🟡 Planned | v0.2.0 (Win32 `WM_POWERBROADCAST`). |
 | **`powerSaveBlocker`** | Prevent OS sleep during active tasks | 🟡 Planned | v0.2.0 (Win32 `SetThreadExecutionState`). |
@@ -87,7 +92,7 @@ In Electron, developers sometimes install packages that contain precompiled C++ 
 ### Recommended Alternatives:
 | Electron Pattern | PicoTS Recommended Alternative |
 | :--- | :--- |
-| `better-sqlite3` (`.node` addon) | **`@sqlite.org/sqlite-wasm`** or **`sql.js`** (Pure WebAssembly, 100% portable, zero compilation). |
+| `better-sqlite3` (`.node` addon) | **Built-in `import { Database } from "@picots/core"`** (Zero compilation, zero rebuilds). |
 | `sharp` (`.node` image processing) | **`@squoosh/lib`** (WASM) or standard HTML5 Canvas / WebCodecs. |
 | `serialport` (`.node` hardware driver) | **Web Serial API** (`navigator.serial`) in WebView2, or native Win32 COM stream. |
 | `node-pty` (`.node` terminal emulator) | **`xterm.js`** frontend connected over IPC to OS shell (`child_process.spawn("cmd.exe")`). |
@@ -96,5 +101,5 @@ In Electron, developers sometimes install packages that contain precompiled C++ 
 
 ## 🎯 Final Verdict: Is PicoTS Compatible for Your App?
 
-- **YES (Instant Drop-In Replacement)**: If your application is a React, Vue, Svelte, or Vanilla TypeScript desktop app using standard window management, IPC communication, file dialogs, system tray, notifications, offline storage, and web APIs.
+- **YES (Instant Drop-In Replacement)**: If your application is a React, Vue, Svelte, or Vanilla TypeScript desktop app using standard window management, IPC communication, file dialogs, system tray, notifications, offline database storage, and web APIs.
 - **NO (Requires Adaptation)**: If your application is an audio/screen streaming recorder (like OBS/Discord requiring `desktopCapturer`) or heavily depends on closed-source `.node` native C++ binary addons that cannot be replaced with WebAssembly or pure TypeScript.
