@@ -104,11 +104,14 @@ bun run build
 
 ## 📚 In-Depth Documentation
 
-- **[`docs/PICOTS_ROADMAP_AND_TRACKING.md`](./docs/PICOTS_ROADMAP_AND_TRACKING.md)**: Master direction, architectural scorecards, and roadmap to the 1.0.0 public release.
+- **[`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md)**: Full API reference for `BrowserWindow`, `ipcMain`, `ipcRenderer`, `app`, `dialog`, `tray`, `clipboard`, and `shell`.
+- **[`docs/FRAMEWORK_INTEGRATION_GUIDE.md`](./docs/FRAMEWORK_INTEGRATION_GUIDE.md)**: Setup guides for React 19, Vue 3, Svelte 5, Next.js static exports, and TailwindCSS.
 - **[`docs/MIGRATING_FROM_ELECTRON.md`](./docs/MIGRATING_FROM_ELECTRON.md)**: 5-minute migration guide for developers switching from Electron to PicoTS.
-- **[`docs/MAINTAINER_GUIDE.md`](./docs/MAINTAINER_GUIDE.md)**: Release and publishing guidelines for repository maintainers.
-- **[`docs/HOW_WE_BUILT_PICOTS_POC.md`](./docs/HOW_WE_BUILT_PICOTS_POC.md)**: Detailed step-by-step engineering retrospective explaining how the proof-of-concept was designed, compiled, and benchmarked.
-- **[`docs/PICOTS_ARCHITECTURE_SPEC.md`](./docs/PICOTS_ARCHITECTURE_SPEC.md)**: Complete architectural specification for the `@picots/*` ecosystem and 1.0 roadmap.
+- **[`docs/TROUBLESHOOTING_AND_FAQ.md`](./docs/TROUBLESHOOTING_AND_FAQ.md)**: Frequently asked questions, toolchain setup, and common troubleshooting steps.
+- **[`docs/PICOTS_ROADMAP_AND_TRACKING.md`](./docs/PICOTS_ROADMAP_AND_TRACKING.md)**: Master roadmap and scorecard to the 1.0.0 public release.
+- **[`docs/MAINTAINER_GUIDE.md`](./docs/MAINTAINER_GUIDE.md)**: Release and publishing workflows for repository maintainers.
+- **[`docs/HOW_WE_BUILT_PICOTS_POC.md`](./docs/HOW_WE_BUILT_PICOTS_POC.md)**: Detailed engineering retrospective on how the POC was designed and compiled.
+- **[`docs/PICOTS_ARCHITECTURE_SPEC.md`](./docs/PICOTS_ARCHITECTURE_SPEC.md)**: Complete architectural specification for the `@picots/*` engine.
 
 ---
 
