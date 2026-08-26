@@ -41,7 +41,8 @@ export class IpcMainManager {
     const port = parseInt(process.env.PICOTS_IPC_PORT || "5174", 10);
     const self = this;
     try {
-      const http = typeof require !== "undefined" ? require("node:http") : null;
+      const nodeRequire = (globalThis as any).require;
+      const http = typeof nodeRequire === "function" ? nodeRequire("node:http") : null;
       if (http && typeof http.createServer === "function") {
         const server = http.createServer(async (req: any, res: any) => {
           res.setHeader("Access-Control-Allow-Origin", "*");
