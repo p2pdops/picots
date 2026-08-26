@@ -1,6 +1,6 @@
 {
   "name": "@picots/vite-plugin",
-  "version": "0.0.21",
+  "version": "0.0.23",
   "description": "Official Vite HMR plugin for PicoTS desktop applications",
   "type": "module",
   "main": "./dist/index.js",

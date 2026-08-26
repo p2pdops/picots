@@ -1,6 +1,6 @@
 {
   "name": "@picots/webview",
-  "version": "0.0.21",
+  "version": "0.0.23",
   "description": "Native cross-platform WebView host engine for PicoTS",
   "type": "module",
   "main": "./dist/index.js",

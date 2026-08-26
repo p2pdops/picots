@@ -27,6 +27,68 @@ export class IpcMainManager {
   private _handlers: Map<string, IpcMainHandler> = new Map();
   private _listeners: Map<string, Function[]> = new Map();
 
+  constructor() {
+    (globalThis as any).__picots_ipc_main = this;
+    if (typeof process !== "undefined" && typeof window === "undefined") {
+      this._startDevBridge();
+    }
+  }
+
+  private _startDevBridge(): void {
+    const port = parseInt(process.env.PICOTS_IPC_PORT || "5174", 10);
+    const self = this;
+    try {
+      const http = typeof require !== "undefined" ? require("node:http") : null;
+      if (http && typeof http.createServer === "function") {
+        const server = http.createServer(async (req: any, res: any) => {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+          res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+          if (req.method === "OPTIONS") {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
+          if (req.url === "/__picots_ipc" && req.method === "POST") {
+            let body = "";
+            req.on("data", (chunk: any) => {
+              body += chunk;
+            });
+            req.on("end", async () => {
+              try {
+                const { channel, args } = JSON.parse(body || "{}");
+                const result = await self._dispatch(channel, ...(args || []));
+                res.statusCode = 200;
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify({ result }));
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify({ error: err?.message || String(err) }));
+              }
+            });
+            return;
+          }
+
+          res.statusCode = 404;
+          res.end();
+        });
+
+        server.on("error", (err: any) => {
+          if (err.code !== "EADDRINUSE") {
+            console.warn("⚠️ [PicoTS] Dev IPC Bridge warning:", err.message);
+          }
+        });
+
+        server.listen(port, "127.0.0.1", () => {
+          console.log(`📡 [PicoTS] Dev IPC Bridge listening on http://127.0.0.1:${port}/__picots_ipc`);
+        });
+      }
+    } catch (err) {}
+  }
+
   /**
    * Handles an asynchronous IPC call from `ipcRenderer.invoke(channel, ...args)`.
    */
@@ -194,13 +256,34 @@ export class IpcRendererManager {
       return typeof raw === "string" ? JSON.parse(raw) : raw;
     }
 
-    // 2. Generic invoke dispatcher
+    // 2. Generic native invoke dispatcher
     if (typeof (globalThis as any).invoke === "function") {
       const res = await (globalThis as any).invoke(channel, ...args);
       return typeof res === "string" ? JSON.parse(res) : res;
     }
 
-    // 3. Fallback to in-process ipcMain dispatch if executing in unified process
+    // 3. Dev Mode cross-process IPC Bridge over HTTP
+    if (typeof window !== "undefined" && typeof fetch === "function") {
+      try {
+        const port = 5174;
+        const resp = await fetch(`http://localhost:${port}/__picots_ipc`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channel, args }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.error) throw new Error(data.error);
+          return data.result;
+        }
+      } catch (err: any) {
+        if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("NetworkError")) {
+          throw err;
+        }
+      }
+    }
+
+    // 4. In-process fallback
     if (ipcMain) {
       return await ipcMain._dispatch(channel, ...args);
     }

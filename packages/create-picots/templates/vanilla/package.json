@@ -1,6 +1,6 @@
 {
   "name": "my-picots-app",
-  "version": "0.0.21",
+  "version": "0.0.23",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,9 +9,9 @@
     "start": ".\\dist\\my-picots-app.exe"
   },
   "dependencies": {
-    "@picots/core": "^0.0.21"
+    "@picots/core": "^0.0.23"
   },
   "devDependencies": {
-    "@picots/cli": "^0.0.21"
+    "@picots/cli": "^0.0.23"
   }
 }
