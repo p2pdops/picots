@@ -18,6 +18,11 @@
     "dist",
     "src"
   ],
-  "author": "PicoTS Authors",
-  "license": "MIT"
+  "author": "p2pdops",
+  "license": "MIT",
+  "homepage": "https://p2pdops.github.io/picots",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/p2pdops/picots.git"
+  }
 }

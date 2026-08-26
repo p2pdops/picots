@@ -1,6 +1,9 @@
 # 🚀 PicoTS
 ### Next-Generation TypeScript-Native Desktop Framework
 
+[![Website](https://img.shields.io/badge/website-p2pdops.github.io%2Fpicots-00e5ff?style=flat-square)](https://p2pdops.github.io/picots)
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
 **PicoTS** is an ultra-lightweight desktop application framework that allows developers to build **sub-megabyte (< 500 KB), zero-dependency native desktop applications using 100% TypeScript from end to end.**
 
 It eliminates the 150MB+ bundle size and high memory bloat of **Electron** while eliminating the steep Rust learning curve of **Tauri**.

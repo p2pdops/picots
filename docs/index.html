@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicoTS — Next-Generation TypeScript-Native Desktop Framework</title>
+  <meta name="description" content="Build sub-megabyte (< 500 KB), zero-dependency desktop apps using 100% TypeScript with native OS WebViews and in-memory IPC. The lightweight Electron alternative.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: rgba(18, 24, 38, 0.7);
+      --bg-card-hover: rgba(28, 36, 56, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #00e5ff;
+      --accent-purple: #a855f7;
+      --accent-green: #10b981;
+      --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      line-height: 1.6;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(0, 229, 255, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 90% 40%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navbar */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-main);
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .brand-badge {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #00e5ff 0%, #a855f7 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--accent-cyan); }
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-github:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 30px;
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      color: var(--accent-cyan);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #00e5ff 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 36px;
+    }
+
+    /* Terminal Quickstart */
+    .terminal-box {
+      max-width: 580px;
+      margin: 0 auto 48px;
+      background: #0d111a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .terminal-code {
+      color: var(--accent-cyan);
+    }
+    .terminal-prompt {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    /* Features Grid */
+    .section-title {
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 36px;
+      letter-spacing: -0.5px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 70px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(0, 229, 255, 0.3);
+      background: var(--bg-card-hover);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(0, 229, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-cyan);
+      margin-bottom: 16px;
+    }
+    .feature-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Table */
+    .comparison-wrapper {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 24px;
+      overflow-x: auto;
+      margin-bottom: 70px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .highlight-col {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 36px 0;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--accent-cyan); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <div class="container nav-inner">
+      <a href="#" class="brand">
+        <div class="brand-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+        </div>
+        <span>Pico<span style="color: var(--accent-cyan);">TS</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a href="https://github.com/p2pdops/picots" class="btn-github" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="container">
+    <section class="hero">
+      <div class="pill">
+        <span>⚡ Less than 500 KB Single Executable</span>
+      </div>
+      <h1>The <span class="gradient-text">TypeScript-Native</span><br>Desktop Framework</h1>
+      <p>Build ultra-lightweight desktop applications in 100% TypeScript with native OS WebViews, zero-HTTP in-memory IPC, and zero Node.js/V8 bloat.</p>
+
+      <div class="terminal-box">
+        <div>
+          <span class="terminal-prompt">$</span>
+          <span class="terminal-code">bun create picots my-app</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <h2 class="section-title">Why Developers Choose PicoTS</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3 class="feature-title">Sub-Megabyte Binaries</h3>
+        <p class="feature-desc">Compiles your entire desktop app into a single standalone executable (< 500 KB) with zero companion DLLs or runtime bloat.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3 class="feature-title">Zero-HTTP Direct IPC</h3>
+        <p class="feature-desc">No localhost network ports or sockets. Communication happens directly over in-memory Windows COM / WebKit dispatch in < 0.08ms.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <h3 class="feature-title">100% TypeScript</h3>
+        <p class="feature-desc">Write idiomatic TypeScript across both UI and native backend. No need to learn or write Rust, C++, or Go.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🖥️</div>
+        <h3 class="feature-title">Hardware OS WebViews</h3>
+        <p class="feature-desc">Leverages Microsoft Edge WebView2 on Windows and Apple WebKit on macOS/Linux, eliminating 120MB+ Chromium bundles.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🪟</div>
+        <h3 class="feature-title">Native OS Capabilities</h3>
+        <p class="feature-desc">Built-in support for Win32 Open/Save File Dialogs, Modal Alert Boxes, and custom frameless draggable window controls.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🚀</div>
+        <h3 class="feature-title">Instant Cold Start</h3>
+        <p class="feature-desc">Executes directly as native machine code via ScriptC LLVM AOT, booting up your desktop window in less than 100ms.</p>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <h2 class="section-title">Architecture Comparison</h2>
+    <div class="comparison-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Electron</th>
+            <th>Tauri</th>
+            <th class="highlight-col">PicoTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Backend Language</strong></td>
+            <td>JavaScript / TypeScript</td>
+            <td>Rust</td>
+            <td class="highlight-col">100% TypeScript</td>
+          </tr>
+          <tr>
+            <td><strong>Backend Runtime</strong></td>
+            <td>Node.js + V8 (~150MB)</td>
+            <td>Native Rust Binary</td>
+            <td class="highlight-col">Native Machine Code (ScriptC AOT)</td>
+          </tr>
+          <tr>
+            <td><strong>Binary Bundle Size</strong></td>
+            <td>~150 MB+</td>
+            <td>~5 MB – 15 MB</td>
+            <td class="highlight-col">< 1 MB (< 500 KB)</td>
+          </tr>
+          <tr>
+            <td><strong>Cold Start Time</strong></td>
+            <td>1.5s – 3.0s</td>
+            <td>0.2s – 0.5s</td>
+            <td class="highlight-col">< 0.1s (Instant)</td>
+          </tr>
+          <tr>
+            <td><strong>Network Stack</strong></td>
+            <td>HTTP / Mojo Sockets</td>
+            <td>Custom URI (<code>ipc://</code>)</td>
+            <td class="highlight-col">Zero-HTTP / Direct COM Memory</td>
+          </tr>
+          <tr>
+            <td><strong>IPC Latency</strong></td>
+            <td>~0.5 ms</td>
+            <td>~0.3 ms</td>
+            <td class="highlight-col">< 0.08 ms</td>
+          </tr>
+          <tr>
+            <td><strong>Learning Curve</strong></td>
+            <td>Low</td>
+            <td>High (Requires Rust)</td>
+            <td class="highlight-col">Zero (Standard TypeScript)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>MIT © <a href="https://github.com/p2pdops" target="_blank">p2pdops</a>. Powered by <a href="https://github.com/vercel-labs/scriptc" target="_blank">ScriptC</a> and <a href="https://github.com/webview/webview" target="_blank">Webview</a>.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

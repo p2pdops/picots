@@ -12,6 +12,16 @@
     "dev": "bun run --filter \"starter-app\" dev",
     "typecheck": "tsc --noEmit"
   },
+  "author": "p2pdops",
+  "license": "MIT",
+  "homepage": "https://p2pdops.github.io/picots",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/p2pdops/picots.git"
+  },
+  "bugs": {
+    "url": "https://github.com/p2pdops/picots/issues"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^22.0.0",
