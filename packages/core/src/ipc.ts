@@ -6,21 +6,20 @@ export interface IpcMainInvokeEvent {
 export type IpcMainHandler = (event: IpcMainInvokeEvent, ...args: any[]) => any | Promise<any>;
 export type IpcRendererListener = (event: any, ...args: any[]) => void;
 
-export interface ElectronAPIBridge {
-  [channel: string]: ((...args: any[]) => Promise<any>) | any;
+export type ElectronAPIBridge<T = any> = T & {
   invoke(channel: string, ...args: any[]): Promise<any>;
   send(channel: string, ...args: any[]): void;
   on(channel: string, listener: IpcRendererListener): any;
   once(channel: string, listener: IpcRendererListener): any;
   removeListener(channel: string, listener: IpcRendererListener): any;
   removeAllListeners(channel?: string): any;
-}
+  [key: string]: any;
+};
 
 declare global {
   interface Window {
-    electronAPI: ElectronAPIBridge;
-    picotsAPI: ElectronAPIBridge;
-    ipcRenderer: IpcRendererManager;
+    picotsAPI?: ElectronAPIBridge;
+    ipcRenderer?: IpcRendererManager;
   }
 }
 
