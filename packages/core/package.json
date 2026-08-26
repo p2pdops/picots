@@ -1,0 +1,23 @@
+{
+  "name": "@picots/core",
+  "version": "0.1.0",
+  "description": "Developer-facing TypeScript Desktop Runtime SDK for PicoTS",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "author": "PicoTS Authors",
+  "license": "MIT"
+}

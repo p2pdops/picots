@@ -1,0 +1,20 @@
+{
+  "name": "create-picots",
+  "version": "0.1.0",
+  "description": "Interactive scaffolding tool for PicoTS desktop applications",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "create-picots": "./bin/create.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates"
+  ],
+  "author": "PicoTS Authors",
+  "license": "MIT"
+}

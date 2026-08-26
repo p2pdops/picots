@@ -1,0 +1,28 @@
+{
+  "name": "@picots/webview",
+  "version": "0.1.0",
+  "description": "Cross-platform native WebView engine and prebuilt libraries for PicoTS",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./include/*": "./include/*",
+    "./lib/*": "./lib/*",
+    "./src/*": "./src/*"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist",
+    "include",
+    "lib",
+    "src"
+  ],
+  "author": "PicoTS Authors",
+  "license": "MIT"
+}

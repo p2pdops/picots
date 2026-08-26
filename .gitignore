@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build Outputs & Compilation Artifacts
+dist/
+build/
+out/
+.picots/
+.scriptc/
+
+# Binary & Native Artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.o
+*.obj
+*.a
+*.lib
+!packages/webview/lib/*.lib
+
+# TypeScript & Compiler Cache
+*.tsbuildinfo
+.tsbuildinfo
+
+# OS Metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment & Logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun.log
+
+# IDE & Editor files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

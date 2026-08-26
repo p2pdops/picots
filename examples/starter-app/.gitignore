@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# PicoTS Build Outputs
+dist/
+.picots/
+
+# Binaries & Logs
+*.exe
+*.pdb
+*.log
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

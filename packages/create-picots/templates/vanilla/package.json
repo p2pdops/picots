@@ -1,0 +1,17 @@
+{
+  "name": "my-picots-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "picots dev",
+    "build": "picots build",
+    "start": ".\\dist\\my-picots-app.exe"
+  },
+  "dependencies": {
+    "@picots/core": "^0.1.0"
+  },
+  "devDependencies": {
+    "picots": "^0.1.0"
+  }
+}

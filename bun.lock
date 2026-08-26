@@ -1,0 +1,79 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "picots-monorepo",
+      "devDependencies": {
+        "@types/bun": "latest",
+        "@types/node": "^22.0.0",
+        "typescript": "^5.7.0",
+      },
+    },
+    "examples/starter-app": {
+      "name": "starter-app",
+      "version": "0.1.0",
+      "dependencies": {
+        "@picots/core": "workspace:*",
+      },
+      "devDependencies": {
+        "picots": "workspace:*",
+      },
+    },
+    "packages/core": {
+      "name": "@picots/core",
+      "version": "0.1.0",
+    },
+    "packages/create-picots": {
+      "name": "create-picots",
+      "version": "0.1.0",
+      "bin": {
+        "create-picots": "./bin/create.js",
+      },
+    },
+    "packages/picots": {
+      "name": "picots",
+      "version": "0.1.0",
+      "bin": {
+        "picots": "./bin/picots.js",
+      },
+      "dependencies": {
+        "@picots/core": "workspace:*",
+        "@picots/webview": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "typescript": "^5.7.0",
+      },
+    },
+    "packages/webview": {
+      "name": "@picots/webview",
+      "version": "0.1.0",
+    },
+  },
+  "packages": {
+    "@picots/core": ["@picots/core@workspace:packages/core"],
+
+    "@picots/webview": ["@picots/webview@workspace:packages/webview"],
+
+    "@types/bun": ["@types/bun@1.4.0", "", { "dependencies": { "bun-types": "1.4.0" } }, "sha512-K+lZULY23vRgK/CfTjFIV+tyifaNdSMlPh9j+6mQ/cLfpOznLyAuzgV/JQysyECpkBQLVMSyvjlr2fBUSA9wFQ=="],
+
+    "@types/node": ["@types/node@22.20.1", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q=="],
+
+    "bun-types": ["bun-types@1.4.0", "", { "dependencies": { "@types/node": "*" } }, "sha512-iIKw23BspnQQYd3prITOBxeUsxBHnwzX6YJfGMuNOZzeNcMmVqzIIVGRm1l69ogaPQmb4wB6BN8mA5bE9YuC5Q=="],
+
+    "create-picots": ["create-picots@workspace:packages/create-picots"],
+
+    "picots": ["picots@workspace:packages/picots"],
+
+    "starter-app": ["starter-app@workspace:examples/starter-app"],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+
+    "bun-types/@types/node": ["@types/node@26.3.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-L3fgrnchriRC2ExBflb8j4uZZURHZfQsmQeyVzhjcHW4kkwVyo8/0h1B2MVzMTrYUJYu6G7EWs14hW/L9putqw=="],
+
+    "bun-types/@types/node/undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
+  }
+}

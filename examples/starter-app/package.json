@@ -1,0 +1,17 @@
+{
+  "name": "starter-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "picots dev",
+    "build": "picots build",
+    "start": ".\\dist\\starter-app.exe"
+  },
+  "dependencies": {
+    "@picots/core": "workspace:*"
+  },
+  "devDependencies": {
+    "picots": "workspace:*"
+  }
+}

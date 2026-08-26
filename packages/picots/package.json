@@ -1,0 +1,29 @@
+{
+  "name": "picots",
+  "version": "0.1.0",
+  "description": "Next-generation TypeScript-native desktop application compiler and CLI",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "picots": "./bin/picots.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@picots/core": "workspace:*",
+    "@picots/webview": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "src"
+  ],
+  "author": "PicoTS Authors",
+  "license": "MIT"
+}
