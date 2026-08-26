@@ -17,6 +17,19 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
     apply: "serve",
 
     configureServer(server: ViteDevServer) {
+      // Forward browser renderer console logs to terminal
+      server.ws.on("picots:log", (data: { type: string; message: string }) => {
+        const { type, message } = data;
+        const timestamp = new Date().toLocaleTimeString();
+        if (type === "error") {
+          console.error(`\x1b[90m${timestamp}\x1b[0m \x1b[31m[Renderer Error]\x1b[0m ${message}`);
+        } else if (type === "warn") {
+          console.warn(`\x1b[90m${timestamp}\x1b[0m \x1b[33m[Renderer Warn]\x1b[0m ${message}`);
+        } else {
+          console.log(`\x1b[90m${timestamp}\x1b[0m \x1b[36m[Renderer Log]\x1b[0m ${message}`);
+        }
+      });
+
       if (options.autoLaunch === false) return;
 
       server.httpServer?.once("listening", () => {

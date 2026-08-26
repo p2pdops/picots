@@ -7,6 +7,7 @@ export * from "./shell";
 export * from "./notification";
 export * from "./tray";
 export * from "./ipc";
+export * from "./logger";
 export * from "./config";
 
 import { app } from "./app";
