@@ -1,7 +1,13 @@
 import type { Plugin, ViteDevServer } from "vite";
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 
 export interface PicotsViteOptions {
+  /**
+   * Main process entry point script.
+   * If not set, reads from picots.config.json, package.json, or auto-discovers src/main/index.ts.
+   */
+  main?: string;
   /**
    * Automatically launch the PicoTS desktop window on Vite dev server start.
    * @default true
@@ -57,7 +63,41 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
           },
         });
 
+        // Determine main process entry from options, picots.config.json, or package.json
+        let mainProc: any = null;
+        let mainEntry = options.main;
+        if (!mainEntry && existsSync("picots.config.json")) {
+          try {
+            const raw = JSON.parse(readFileSync("picots.config.json", "utf8"));
+            if (raw.main) mainEntry = raw.main;
+          } catch {}
+        }
+        if (!mainEntry) {
+          const mainCandidates = ["src/main/index.ts", "src/main.ts", "src/main/main.ts", "src/index.ts"];
+          for (const candidate of mainCandidates) {
+            if (existsSync(candidate)) {
+              mainEntry = candidate;
+              break;
+            }
+          }
+        }
+
+        if (mainEntry && existsSync(mainEntry)) {
+          console.log(`⚡ [PicoTS] Spawning main process: ${mainEntry}`);
+          mainProc = spawn(isWin ? "cmd.exe" : "bun", isWin ? ["/c", "bun", "run", mainEntry] : ["run", mainEntry], {
+            stdio: "inherit",
+            env: {
+              ...process.env,
+              PICOTS_DEV_URL: devUrl,
+              NODE_ENV: "development",
+            },
+          });
+        }
+
         proc.on("exit", () => {
+          if (mainProc) {
+            try { mainProc.kill(); } catch {}
+          }
           console.log("🛑 [PicoTS] Desktop window closed. Stopping Vite dev server...");
           server.close().then(() => process.exit(0));
         });

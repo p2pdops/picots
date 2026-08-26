@@ -23,6 +23,7 @@ export interface DevConfig {
 
 export interface PicotsConfig {
   name?: string;
+  main?: string;
   window?: WindowConfig;
   build?: BuildConfig;
   dev?: DevConfig;

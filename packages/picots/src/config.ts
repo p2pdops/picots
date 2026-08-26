@@ -18,12 +18,24 @@ export function loadConfig(cwd: string = process.cwd()): PicotsConfig {
     }
   }
 
-  // 2. Default name from package.json if not set
-  if (!config.name && existsSync(pkgPath)) {
+  // 2. Default name and main from package.json if not set
+  if (existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-      if (pkg.name) config.name = pkg.name.replace(/[^a-zA-Z0-9_-]/g, "-");
+      if (!config.name && pkg.name) config.name = pkg.name.replace(/[^a-zA-Z0-9_-]/g, "-");
+      if (!config.main && pkg.main) config.main = pkg.main;
     } catch {}
+  }
+
+  // 3. Fallback main candidate detection
+  if (!config.main) {
+    const candidates = ["src/main/index.ts", "src/main.ts", "src/main/main.ts", "src/index.ts"];
+    for (const c of candidates) {
+      if (existsSync(join(cwd, c))) {
+        config.main = c;
+        break;
+      }
+    }
   }
 
   // Apply sensible defaults
