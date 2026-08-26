@@ -27,7 +27,9 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 
   // Check Vite build outputs if frontendDir is not found
   if (!existsSync(frontendDir)) {
-    if (existsSync(resolve(cwd, "dist-frontend"))) {
+    if (existsSync(join(tempDir, "frontend"))) {
+      frontendDir = join(tempDir, "frontend");
+    } else if (existsSync(resolve(cwd, "dist-frontend"))) {
       frontendDir = resolve(cwd, "dist-frontend");
     } else if (existsSync(resolve(cwd, "build"))) {
       frontendDir = resolve(cwd, "build");

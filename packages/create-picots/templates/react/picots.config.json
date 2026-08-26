@@ -13,7 +13,7 @@
   },
   "build": {
     "outDir": "dist",
-    "frontendDir": "dist-frontend"
+    "frontendDir": ".picots/frontend"
   },
   "dev": {
     "url": "http://localhost:5173"
