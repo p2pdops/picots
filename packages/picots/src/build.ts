@@ -181,7 +181,15 @@ std::string ExtractFirstArg(const std::string& req) {
 
 LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     if (uMsg == WM_NCCALCSIZE && wParam == TRUE) {
-        // Removing standard non-client frame to eliminate the top white line on Windows 10/11
+        if (IsZoomed(hwnd)) {
+            NCCALCSIZE_PARAMS* pParams = (NCCALCSIZE_PARAMS*)lParam;
+            int frameX = GetSystemMetrics(SM_CXFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+            int frameY = GetSystemMetrics(SM_CYFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+            pParams->rgrc[0].top += frameY;
+            pParams->rgrc[0].left += frameX;
+            pParams->rgrc[0].right -= frameX;
+            pParams->rgrc[0].bottom -= frameY;
+        }
         return 0;
     }
     if (uMsg == WM_HOTKEY) {
@@ -259,11 +267,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     g_original_wndproc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)TraySubclassProc);
 
     ${isFrameless ? `
-    // Frameless window: strip standard caption, minimize/maximize system boxes
+    // Frameless window: enable full Windows Aero Snap, edge snapping, and Win+Arrow shortcuts
     {
         LONG style = GetWindowLong(hwnd, GWL_STYLE);
-        style &= ~(WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
-        ${winConfig.resizable !== false ? `style |= WS_THICKFRAME;` : `style &= ~WS_THICKFRAME;`}
+        style |= (WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+        style &= ~WS_CAPTION;
         SetWindowLong(hwnd, GWL_STYLE, style);
 
         BOOL darkMode = TRUE;
