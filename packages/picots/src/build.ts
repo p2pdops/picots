@@ -600,10 +600,46 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         return "{\\"status\\":\\"ok\\"}";
     });
 
-    // 14. Benchmark
-    w.bind("benchmark", [](const std::string&) -> std::string {
-        return "{\\"status\\":\\"ok\\"}";
+    // 15. Native Zero-Import Document-Created Injection
+    w.init(R"JS(
+(function() {
+    if (typeof window === "undefined") return;
+    const baseBridge = {
+        invoke: function(ch) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            var norm = ch.replace(/[^a-zA-Z0-9_]/g, "_");
+            if (typeof window[norm] === "function") return window[norm].apply(window, args);
+            if (typeof window.invoke === "function") return window.invoke.apply(window, [ch].concat(args));
+            return Promise.resolve(null);
+        },
+        send: function(ch) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            var norm = ch.replace(/[^a-zA-Z0-9_]/g, "_");
+            if (typeof window[norm] === "function") window[norm].apply(window, args);
+        },
+        on: function() { return function() {}; },
+        once: function() { return function() {}; },
+        removeListener: function() {},
+        removeAllListeners: function() {}
+    };
+    const proxy = new Proxy(baseBridge, {
+        get: function(target, prop) {
+            if (typeof prop === "string" && prop in target) return target[prop];
+            if (typeof prop === "string") {
+                return function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    if (typeof args[0] === "function") return function() {};
+                    return target.invoke.apply(target, [prop].concat(args));
+                };
+            }
+            return target[prop];
+        }
     });
+    window.electronAPI = window.electronAPI || proxy;
+    window.picotsAPI = window.picotsAPI || proxy;
+    window.ipcRenderer = window.ipcRenderer || proxy;
+})();
+    )JS");
 
     ${devUrl ? `w.navigate("${devUrl}");` : `w.set_html(reinterpret_cast<const char*>(g_embedded_html));`}
     w.run();

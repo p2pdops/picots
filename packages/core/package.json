@@ -1,21 +1,22 @@
 {
   "name": "@picots/core",
-  "version": "0.0.26",
+  "version": "0.0.29",
   "description": "TypeScript-native Desktop Runtime SDK for PicoTS (Drop-in Electron Replacement)",
-  "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b"
+    "build": "bun build src/index.ts --outfile dist/index.js --format esm && bun build src/index.ts --outfile dist/index.cjs --format cjs && tsc -b"
   },
   "author": "p2pdops",
   "license": "MIT",

@@ -158,8 +158,7 @@ export class BrowserWindow {
         (globalThis as any).eval(`document.body.style.zoom = "${factor}"`);
       }
     },
-    getZoomFactor: (): number => 1.0,
-    setWindowOpenHandler: (handler: (details: { url: string }) => { action: 'allow' | 'deny' }) => {},
+    setWindowOpenHandler: (handler: (details: { url: string; frameName?: string; disposition?: string; [key: string]: any }) => { action: 'allow' | 'deny'; [key: string]: any }) => {},
     on: (event: string, listener: (event: any, ...args: any[]) => any) => {},
     once: (event: string, listener: (event: any, ...args: any[]) => any) => {},
     removeListener: (event: string, listener: (event: any, ...args: any[]) => any) => {},

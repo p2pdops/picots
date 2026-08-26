@@ -17,10 +17,33 @@ export interface PicotsViteOptions {
 
 export function picots(options: PicotsViteOptions = {}): Plugin {
   let isLaunched = false;
+  const virtualModuleId = "/@picots/client-runtime.js";
+  const resolvedVirtualModuleId = "\0" + virtualModuleId;
 
   return {
     name: "vite-plugin-picots",
-    apply: "serve",
+
+    resolveId(id) {
+      if (id === virtualModuleId) {
+        return resolvedVirtualModuleId;
+      }
+    },
+
+    load(id) {
+      if (id === resolvedVirtualModuleId) {
+        return `import "@picots/core";`;
+      }
+    },
+
+    transformIndexHtml(html) {
+      return [
+        {
+          tag: "script",
+          attrs: { type: "module", src: virtualModuleId },
+          injectTo: "head-prepend",
+        },
+      ];
+    },
 
     configureServer(server: ViteDevServer) {
       // Forward browser renderer console logs to terminal
