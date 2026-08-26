@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build All Monorepo Packages & Reference Binary
+        run: bun run build
+
+      - name: Prepare Binary Release Asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "release-assets"
+          Copy-Item "examples/starter-app/dist/starter-app.exe" "release-assets/picots-starter-app-windows-x64.exe"
+          Get-ChildItem "release-assets" | Format-Table Name, Length
+
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          name: PicoTS ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Packages to npm
+        if: env.NPM_TOKEN != ''
+        shell: pwsh
+        run: |
+          npm set //registry.npmjs.org/:_authToken=$env:NPM_TOKEN
+          bun run release:publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

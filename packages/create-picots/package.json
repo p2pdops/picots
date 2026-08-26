@@ -1,25 +1,41 @@
 {
   "name": "create-picots",
-  "version": "0.1.0",
-  "description": "Interactive scaffolding tool for PicoTS desktop applications",
+  "version": "0.0.1",
+  "description": "Scaffolding tool for new PicoTS desktop applications",
   "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "create-picots": "./bin/create.js"
   },
-  "scripts": {
-    "build": "tsc"
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "files": [
-    "bin",
     "dist",
+    "bin",
     "templates"
   ],
+  "scripts": {
+    "build": "tsc -b"
+  },
   "author": "p2pdops",
   "license": "MIT",
-  "homepage": "https://p2pdops.github.io/picots",
   "repository": {
     "type": "git",
-    "url": "https://github.com/p2pdops/picots.git"
+    "url": "git+https://github.com/p2pdops/picots.git"
+  },
+  "bugs": {
+    "url": "https://github.com/p2pdops/picots/issues"
+  },
+  "homepage": "https://p2pdops.github.io/picots/",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
   }
 }

@@ -1,34 +1,44 @@
 {
   "name": "picots",
-  "version": "0.1.0",
-  "description": "Next-generation TypeScript-native desktop application compiler and CLI",
+  "version": "0.0.1",
+  "description": "Master CLI compiler and bundler for PicoTS desktop applications",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "picots": "./bin/picots.js"
   },
-  "scripts": {
-    "build": "tsc"
-  },
-  "dependencies": {
-    "@picots/core": "workspace:*",
-    "@picots/webview": "workspace:*"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "files": [
-    "bin",
     "dist",
-    "src"
+    "bin"
   ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@picots/core": "^0.0.1",
+    "@picots/webview": "^0.0.1"
+  },
   "author": "p2pdops",
   "license": "MIT",
-  "homepage": "https://p2pdops.github.io/picots",
   "repository": {
     "type": "git",
-    "url": "https://github.com/p2pdops/picots.git"
+    "url": "git+https://github.com/p2pdops/picots.git"
+  },
+  "bugs": {
+    "url": "https://github.com/p2pdops/picots/issues"
+  },
+  "homepage": "https://p2pdops.github.io/picots/",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
   }
 }

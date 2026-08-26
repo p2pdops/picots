@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Verify Monorepo
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build Packages & Compile Starter App
+        run: bun run build
+
+      - name: Verify Distribution Binaries
+        shell: pwsh
+        run: |
+          if (Test-Path "examples/starter-app/dist/starter-app.exe") {
+            Write-Host "✅ starter-app.exe compiled successfully!"
+            Get-Item "examples/starter-app/dist/starter-app.exe" | Format-List Name, Length
+          } else {
+            Write-Error "❌ starter-app.exe not found in dist/"
+            exit 1
+          }

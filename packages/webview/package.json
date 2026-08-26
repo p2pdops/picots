@@ -1,7 +1,7 @@
 {
   "name": "@picots/webview",
-  "version": "0.1.0",
-  "description": "Cross-platform native WebView engine and prebuilt libraries for PicoTS",
+  "version": "0.0.1",
+  "description": "Native cross-platform WebView host engine for PicoTS",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,25 +9,30 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./include/*": "./include/*",
-    "./lib/*": "./lib/*",
-    "./src/*": "./src/*"
-  },
-  "scripts": {
-    "build": "tsc"
+    }
   },
   "files": [
     "dist",
     "include",
-    "lib",
-    "src"
+    "libs"
   ],
+  "scripts": {
+    "build": "tsc -b"
+  },
   "author": "p2pdops",
   "license": "MIT",
-  "homepage": "https://p2pdops.github.io/picots",
   "repository": {
     "type": "git",
-    "url": "https://github.com/p2pdops/picots.git"
+    "url": "git+https://github.com/p2pdops/picots.git"
+  },
+  "bugs": {
+    "url": "https://github.com/p2pdops/picots/issues"
+  },
+  "homepage": "https://p2pdops.github.io/picots/",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
   }
 }
