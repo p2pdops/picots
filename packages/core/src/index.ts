@@ -11,6 +11,8 @@ export * from "./logger";
 export * from "./screen";
 export * from "./globalShortcut";
 export * from "./nativeTheme";
+export * from "./protocol";
+export * from "./sqlite";
 export * from "./config";
 
 import { app } from "./app";
@@ -25,6 +27,8 @@ import { ipcMain, ipcRenderer } from "./ipc";
 import { screen } from "./screen";
 import { globalShortcut } from "./globalShortcut";
 import { nativeTheme } from "./nativeTheme";
+import { protocol } from "./protocol";
+import { Database } from "./sqlite";
 import { defineConfig } from "./config";
 
 export const picots = {
@@ -45,6 +49,8 @@ export const picots = {
   screen,
   globalShortcut,
   nativeTheme,
+  protocol,
+  Database,
   defineConfig,
 };
 

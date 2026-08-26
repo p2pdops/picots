@@ -1,6 +1,6 @@
 {
   "name": "@picots/core",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "TypeScript-native Desktop Runtime SDK for PicoTS (Drop-in Electron Replacement)",
   "type": "module",
   "main": "./dist/index.js",
