@@ -30,7 +30,10 @@ export class IpcMainManager {
   constructor() {
     (globalThis as any).__picots_ipc_main = this;
     if (typeof process !== "undefined" && typeof window === "undefined") {
-      this._startDevBridge();
+      const isDev = process.env.NODE_ENV === "development" || process.env.PICOTS_DEV === "true" || !!process.env.PICOTS_IPC_PORT;
+      if (isDev) {
+        this._startDevBridge();
+      }
     }
   }
 
@@ -157,6 +160,10 @@ export class IpcMainManager {
     }
   }
 
+  hasHandler(channel: string): boolean {
+    return this._handlers.has(channel) || this._listeners.has(channel);
+  }
+
   /**
    * Internal dispatcher called by native COM IPC bridge.
    */
@@ -262,10 +269,21 @@ export class IpcRendererManager {
       return typeof res === "string" ? JSON.parse(res) : res;
     }
 
-    // 3. Dev Mode cross-process IPC Bridge over HTTP
-    if (typeof window !== "undefined" && typeof fetch === "function") {
+    // 3. In-process direct memory dispatch (Production Standalone & Unified Runtime)
+    if (ipcMain && ipcMain.hasHandler(channel)) {
+      return await ipcMain._dispatch(channel, ...args);
+    }
+
+    // 4. Dev Mode cross-process IPC Bridge over HTTP (only when running in Vite browser dev mode)
+    const isViteDev =
+      typeof window !== "undefined" &&
+      typeof fetch === "function" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      window.location.port !== "";
+
+    if (isViteDev) {
       try {
-        const port = 5174;
+        const port = (window as any).__PICOTS_IPC_PORT__ || 5174;
         const resp = await fetch(`http://localhost:${port}/__picots_ipc`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -283,7 +301,7 @@ export class IpcRendererManager {
       }
     }
 
-    // 4. In-process fallback
+    // 5. Final in-process fallback
     if (ipcMain) {
       return await ipcMain._dispatch(channel, ...args);
     }
