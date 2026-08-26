@@ -114,6 +114,21 @@ export class IpcRendererManager {
       (window as any).electronAPI = (window as any).electronAPI || apiBridge;
       (window as any).picotsAPI = (window as any).picotsAPI || apiBridge;
       (window as any).ipcRenderer = (window as any).ipcRenderer || this;
+
+      // Automatic window dragging for elements with .drag-region, -webkit-app-region: drag, or data-picots-drag
+      if (typeof document !== "undefined") {
+        document.addEventListener("mousedown", (e: MouseEvent) => {
+          if (e.button !== 0) return;
+          const target = e.target as HTMLElement | null;
+          if (!target) return;
+          const isNoDrag = target.closest(".no-drag, button, input, textarea, a, select, [data-no-drag]");
+          if (isNoDrag) return;
+          const isDrag = target.closest(".drag-region, [data-picots-drag], [data-tauri-drag-region], [style*='app-region: drag'], [style*='app-region:drag']");
+          if (isDrag) {
+            this.invoke("window_start_drag").catch(() => {});
+          }
+        });
+      }
     }
   }
 

@@ -6,6 +6,7 @@ export interface WindowConfig {
   minHeight?: number;
   resizable?: boolean;
   frameless?: boolean;
+  frame?: boolean;
   icon?: string;
 }
 

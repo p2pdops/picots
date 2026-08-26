@@ -76,6 +76,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
   }
 
   // 4. Generate native host source with System Tray, Window Subclassing, and all OS APIs
+  const isFrameless = winConfig.frameless === true || winConfig.frame === false;
   const winHint = winConfig.resizable === false ? "WEBVIEW_HINT_FIXED" : "WEBVIEW_HINT_NONE";
   const title = (winConfig.title || appName).replace(/"/g, '\\"');
   const width = winConfig.width || 1180;
@@ -85,6 +86,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 #include "webview.h"
 #include "${headerPath.replace(/\\/g, "/")}"
 #include <windows.h>
+#include <dwmapi.h>
 #include <commdlg.h>
 #include <shellapi.h>
 #include <shlobj.h>
@@ -178,6 +180,10 @@ std::string ExtractFirstArg(const std::string& req) {
 }
 
 LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_NCCALCSIZE && wParam == TRUE) {
+        // Removing standard non-client frame to eliminate the top white line on Windows 10/11
+        return 0;
+    }
     if (uMsg == WM_HOTKEY) {
         int id = (int)wParam;
         auto it = g_hotkey_map.find(id);
@@ -249,8 +255,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
     HWND hwnd = (HWND)w.window().value();
 
-    // Subclass window procedure to receive System Tray and Hotkey messages
+    // Subclass window procedure first so WM_NCCALCSIZE and DWM events are captured immediately
     g_original_wndproc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)TraySubclassProc);
+
+    ${isFrameless ? `
+    // Frameless window: strip standard caption, minimize/maximize system boxes
+    {
+        LONG style = GetWindowLong(hwnd, GWL_STYLE);
+        style &= ~(WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+        ${winConfig.resizable !== false ? `style |= WS_THICKFRAME;` : `style &= ~WS_THICKFRAME;`}
+        SetWindowLong(hwnd, GWL_STYLE, style);
+
+        BOOL darkMode = TRUE;
+        DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &darkMode, sizeof(darkMode));
+        DwmSetWindowAttribute(hwnd, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 */, &darkMode, sizeof(darkMode));
+        MARGINS margins = { 0, 0, 0, 0 };
+        DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+        // Force immediate recalculation with TraySubclassProc active
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_FRAME);
+    }
+    ` : ''}
 
     // 1. System Info
     w.bind("get_system_info", [](const std::string&) -> std::string {
@@ -522,6 +548,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         FlashWindow(hwnd, flag ? TRUE : FALSE);
         return "{\\"status\\":\\"ok\\"}";
     });
+    w.bind("window_start_drag", [hwnd](const std::string&) -> std::string {
+        ReleaseCapture();
+        SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        return "{\\"status\\":\\"ok\\"}";
+    });
+    w.bind("window_set_frame", [hwnd](const std::string& req) -> std::string {
+        bool frame = req.find("true") != std::string::npos || req.find("1") != std::string::npos;
+        LONG style = GetWindowLong(hwnd, GWL_STYLE);
+        if (frame) {
+            style |= (WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU | WS_THICKFRAME);
+        } else {
+            style &= ~(WS_CAPTION | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+        }
+        SetWindowLong(hwnd, GWL_STYLE, style);
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        return "{\\"status\\":\\"ok\\"}";
+    });
 
     // 13. Global Hotkey Accelerators
     w.bind("global_shortcut_register", [hwnd](const std::string& req) -> std::string {
@@ -572,7 +615,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
   const includeDir = webviewPaths.includeDir;
   const staticLib = webviewPaths.windowsStaticLib;
 
-  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" ${resourceObjectParam} "${staticLib}" -lole32 -lshlwapi -lshell32 -lversion -ladvapi32 -luser32 -lcomdlg32 -o "${finalExe}"`;
+  const compileCmd = `g++ -std=c++17 -O2 -mwindows -I"${includeDir}" "${hostSrcPath}" ${resourceObjectParam} "${staticLib}" -lole32 -lshlwapi -lshell32 -lversion -ladvapi32 -luser32 -lcomdlg32 -ldwmapi -o "${finalExe}"`;
   execSync(compileCmd, { stdio: "inherit" });
 
   console.log(`\n🎉 [PicoTS] Build complete: ${finalExe}\n`);

@@ -214,6 +214,22 @@ export class BrowserWindow {
     }
   }
 
+  async startDrag(): Promise<void> {
+    if (typeof (globalThis as any).window_start_drag === "function") {
+      await (globalThis as any).window_start_drag();
+    }
+  }
+
+  async setFrame(frame: boolean): Promise<void> {
+    if (typeof (globalThis as any).window_set_frame === "function") {
+      await (globalThis as any).window_set_frame(frame);
+    }
+  }
+
+  async setFrameless(frameless: boolean): Promise<void> {
+    await this.setFrame(!frameless);
+  }
+
   async setAlwaysOnTop(flag: boolean, level?: string): Promise<void> {
     this._isAlwaysOnTop = flag;
     if (typeof (globalThis as any).window_set_always_on_top === "function") {
