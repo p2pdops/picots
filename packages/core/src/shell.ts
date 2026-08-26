@@ -8,11 +8,15 @@ export const shell = {
     return true;
   },
 
-  async showItemInFolder(path: string): Promise<boolean> {
-    if (typeof (globalThis as any).shell_show_in_folder === "function") {
-      await (globalThis as any).shell_show_in_folder(path);
-      return true;
+  async openPath(path: string): Promise<string> {
+    if (typeof (globalThis as any).shell_open_external === "function") {
+      await (globalThis as any).shell_open_external(path);
+      return "";
     }
-    return false;
+    return "";
+  },
+
+  beep(): void {
+    // OS system sound
   },
 };

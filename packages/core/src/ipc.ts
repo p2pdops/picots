@@ -66,6 +66,35 @@ export class IpcMainManager {
     }
   }
 
+  once(channel: string, listener: Function): void {
+    const onceWrapper = (...args: any[]) => {
+      this.removeListener(channel, onceWrapper);
+      listener(...args);
+    };
+    this.on(channel, onceWrapper);
+  }
+
+  removeAllListeners(channel?: string): void {
+    if (channel) {
+      this._listeners.delete(channel);
+    } else {
+      this._listeners.clear();
+    }
+  }
+
+  emit(channel: string, ...args: any[]): void {
+    const list = this._listeners.get(channel);
+    if (list) {
+      for (const listener of list) {
+        try {
+          listener({ sender: null, channel }, ...args);
+        } catch (err) {
+          console.error(`Error in ipcMain listener for "${channel}":`, err);
+        }
+      }
+    }
+  }
+
   /**
    * Internal dispatcher called by native COM IPC bridge.
    */
@@ -117,8 +146,16 @@ export class IpcRendererManager {
             return target[prop];
           }
           if (typeof prop === "string") {
-            // Supports window.electronAPI['pos:save-invoice'](...args)
-            return (...args: any[]) => this.invoke(prop, ...args);
+            // Supports both invocations and event listener subscriptions with cleanup return
+            return (...args: any[]) => {
+              if (typeof args[0] === "function") {
+                const cb = args[0];
+                const listener: IpcRendererListener = (_event, ...data) => cb(...data);
+                this.on(prop, listener);
+                return () => this.removeListener(prop, listener);
+              }
+              return this.invoke(prop, ...args);
+            };
           }
           return target[prop];
         },

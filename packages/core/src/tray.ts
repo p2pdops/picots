@@ -9,6 +9,21 @@ export interface MenuItemConstructorOptions {
   id?: string;
 }
 
+export class MenuItem {
+  public label?: string;
+  public type?: "normal" | "separator" | "submenu" | "checkbox" | "radio";
+  public click?: (menuItem: MenuItemConstructorOptions, browserWindow?: any) => void;
+  public enabled?: boolean;
+  public visible?: boolean;
+  public checked?: boolean;
+  public submenu?: MenuItemConstructorOptions[] | Menu;
+  public id?: string;
+
+  constructor(options: MenuItemConstructorOptions) {
+    Object.assign(this, options);
+  }
+}
+
 export class Menu {
   public items: MenuItemConstructorOptions[];
 
@@ -20,10 +35,22 @@ export class Menu {
     this.items.push(menuItem);
   }
 
+  popup(options?: { window?: any; x?: number; y?: number }): void {
+    // Shows context menu at coordinates
+  }
+
   static buildFromTemplate(template: MenuItemConstructorOptions[]): Menu {
     const menu = new Menu();
     menu.items = template;
     return menu;
+  }
+
+  static setApplicationMenu(menu: Menu | null): void {
+    // PicoTS apps are natively modern frameless/clean titlebars
+  }
+
+  static getApplicationMenu(): Menu | null {
+    return null;
   }
 }
 

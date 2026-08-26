@@ -22,7 +22,7 @@ import { fs } from "./fs";
 import { clipboard } from "./clipboard";
 import { shell } from "./shell";
 import { notification, Notification } from "./notification";
-import { tray, Tray, Menu } from "./tray";
+import { tray, Tray, Menu, MenuItem } from "./tray";
 import { ipcMain, ipcRenderer } from "./ipc";
 import { screen } from "./screen";
 import { globalShortcut } from "./globalShortcut";
@@ -44,6 +44,7 @@ export const picots = {
   tray,
   Tray,
   Menu,
+  MenuItem,
   ipcMain,
   ipcRenderer,
   screen,

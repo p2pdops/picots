@@ -64,6 +64,23 @@ export const dialog = {
   },
 
   /**
+   * Electron-compatible showSaveDialog
+   */
+  async showSaveDialog(browserWindowOrOptions?: any, options?: any): Promise<{ canceled: boolean; filePath?: string }> {
+    const res = await this.showOpenDialog(browserWindowOrOptions, options);
+    return { canceled: res.canceled, filePath: res.filePaths[0] };
+  },
+
+  /**
+   * Electron-compatible showErrorBox
+   */
+  showErrorBox(title: string, content: string): void {
+    if (typeof (globalThis as any).show_message_dialog === "function") {
+      (globalThis as any).show_message_dialog(title, content);
+    }
+  },
+
+  /**
    * Convenience alias
    */
   async showMessage(title: string, message: string): Promise<void> {

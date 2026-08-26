@@ -114,6 +114,18 @@ export class AppEventEmitter {
     this.quit();
   }
 
+  get isPackaged(): boolean {
+    return typeof process !== "undefined" && (process.env.NODE_ENV === "production" || !!process.env.PICOTS_PACKAGED);
+  }
+
+  get name(): string {
+    return this._name;
+  }
+
+  set name(value: string) {
+    this._name = value;
+  }
+
   getName(): string {
     return this._name;
   }
@@ -130,17 +142,25 @@ export class AppEventEmitter {
     this._version = version;
   }
 
-  getPath(name: AppPathName): string {
+  getAppPath(): string {
+    return typeof process !== "undefined" ? process.cwd() : "";
+  }
+
+  getPath(name: string): string {
     if (typeof process !== "undefined") {
       const home = process.env.USERPROFILE || process.env.HOME || "";
+      const appData = process.env.APPDATA || `${home}/AppData/Roaming`;
+      const userData = `${appData}/${this._name}`;
       switch (name) {
         case "home": return home;
-        case "appData": return process.env.APPDATA || `${home}/AppData/Roaming`;
-        case "userData": return `${process.env.APPDATA || `${home}/AppData/Roaming`}/${this._name}`;
+        case "appData": return appData;
+        case "userData": return userData;
         case "temp": return process.env.TEMP || `${home}/AppData/Local/Temp`;
         case "desktop": return `${home}/Desktop`;
         case "documents": return `${home}/Documents`;
         case "downloads": return `${home}/Downloads`;
+        case "logs": return `${userData}/logs`;
+        case "sessionData": return `${userData}/sessionData`;
         case "exe": return process.cwd();
       }
     }

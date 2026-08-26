@@ -134,6 +134,10 @@ export class BrowserWindow {
       }
     },
     getZoomFactor: (): number => 1.0,
+    setWindowOpenHandler: (handler: (details: { url: string }) => { action: 'allow' | 'deny' }) => {},
+    on: (event: string, listener: Function) => {},
+    once: (event: string, listener: Function) => {},
+    removeListener: (event: string, listener: Function) => {},
     print: async (options: PrintOptions = {}, callback?: (success: boolean, failureReason?: string) => void) => {
       if (typeof (globalThis as any).eval === "function") {
         (globalThis as any).eval("window.print()");
@@ -170,6 +174,7 @@ export class BrowserWindow {
     if (options.minHeight) this._minHeight = options.minHeight;
     if (options.maxWidth) this._maxWidth = options.maxWidth;
     if (options.maxHeight) this._maxHeight = options.maxHeight;
+    BrowserWindow._allWindows.push(this);
   }
 
   async loadURL(url: string): Promise<void> {
@@ -393,6 +398,11 @@ export class BrowserWindow {
     return this._isDestroyed;
   }
 
+  async restore(): Promise<void> {
+    await this.unmaximize();
+    this.emit("restore");
+  }
+
   on(event: string, listener: Function): this {
     if (!this._listeners.has(event)) {
       this._listeners.set(event, []);
@@ -428,6 +438,24 @@ export class BrowserWindow {
         }
       }
     }
+  }
+
+  static _allWindows: BrowserWindow[] = [];
+
+  static getAllWindows(): BrowserWindow[] {
+    return BrowserWindow._allWindows.filter((w) => !w._isDestroyed);
+  }
+
+  static getFocusedWindow(): BrowserWindow | null {
+    return BrowserWindow.getAllWindows().find((w) => w.isFocused()) || BrowserWindow.getAllWindows()[0] || null;
+  }
+
+  static fromWebContents(contents: any): BrowserWindow | null {
+    return BrowserWindow.getFocusedWindow();
+  }
+
+  static fromId(id: number): BrowserWindow | null {
+    return BrowserWindow.getAllWindows()[0] || null;
   }
 }
 
