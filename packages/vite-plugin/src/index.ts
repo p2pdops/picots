@@ -43,9 +43,14 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
         console.log(`\n🚀 [PicoTS] Connecting desktop window to Vite HMR: ${devUrl}`);
 
         // Launch picots dev with --url
-        const proc = spawn("bun", ["picots", "dev", "--url", devUrl], {
+        const isWin = process.platform === "win32";
+        const command = isWin ? "cmd.exe" : "bun";
+        const args = isWin 
+          ? ["/c", "bun", "picots", "dev", "--url", devUrl] 
+          : ["picots", "dev", "--url", devUrl];
+
+        const proc = spawn(command, args, {
           stdio: "inherit",
-          shell: true,
           env: {
             ...process.env,
             PICOTS_DEV_URL: devUrl,
