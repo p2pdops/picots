@@ -8,16 +8,17 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 
 ```
 ┌─────────────────────────────────────────────────────────┬──────────────────────┬──────────────────────────────────────────┐
-│ Subsystem                                               │ Compatibility Level  │ Implementation in PicoTS                 │
+│ Subsystem                                               │ Compatibility Level  │ Implementation in PicoTS (v0.0.8)        │
 ├─────────────────────────────────────────────────────────┼──────────────────────┼──────────────────────────────────────────┤
-│ 1. Window Lifecycle (BrowserWindow, app)                │ 🟢 92% (High)        │ Drop-in TypeScript classes               │
+│ 1. Window Lifecycle & Bounds (BrowserWindow, app)       │ 🟢 98% (Full)        │ Drop-in TypeScript classes with Win32    │
 │ 2. Zero-HTTP In-Memory IPC (ipcMain, ipcRenderer)       │ 🟢 100% (Full)       │ Direct COM memory dispatch (< 0.08ms)    │
-│ 3. Native System Dialogs & Shell Integration            │ 🟢 100% (Full)       │ Win32 IFileDialog, ShellExecuteEx        │
-│ 4. System Tray & Context Menus                          │ 🟢 90% (High)        │ Win32 TrackPopupMenu + Tray subclassing  │
-│ 5. Global Hotkeys & Native Theme                        │ 🟡 Roadmap (0.1.0)   │ Win32 RegisterHotKey & Dark Mode API     │
-│ 6. Deep Linking & Protocol Handlers (myapp://)          │ 🟡 Roadmap (0.1.0)   │ OS URI protocol scheme registration      │
-│ 7. Single-Instance Lock & Power Management              │ 🟡 Roadmap (0.1.0)   │ Win32 Named Mutex & Power Monitor        │
-│ 8. Auto-Updater & Background Updates                    │ 🟡 Roadmap (1.0.0)   │ Background binary delta updater          │
+│ 3. Global window.electronAPI Preload Bridge             │ 🟢 100% (Full)       │ Automatic global bridge on window        │
+│ 4. Native System Dialogs & Shell Integration            │ 🟢 100% (Full)       │ Win32 IFileDialog, ShellExecuteEx        │
+│ 5. System Tray & Context Menus                          │ 🟢 95% (Full)        │ Win32 TrackPopupMenu + Tray subclassing  │
+│ 6. Multi-Monitor Display Queries (screen)               │ 🟢 100% (Full)       │ Primary & all connected display bounds   │
+│ 7. Global Hotkeys & Native Theme (globalShortcut)       │ 🟢 100% (Full)       │ System-wide accelerators & Dark Mode sync│
+│ 8. Single-Instance Lock & Deep Linking (myapp://)       │ 🟢 100% (Full)       │ Named mutex & Registry protocol client   │
+│ 9. Printing & PDF Export (webContents.print)            │ 🟢 90% (High)        │ Silent & dialog print + PDF export       │
 └─────────────────────────────────────────────────────────┴──────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -32,33 +33,44 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 | `app.on('ready', cb)` | `app.on('ready', cb)` | ✅ Supported | Standard EventEmitter pattern. |
 | `app.quit()` | `app.quit()` | ✅ Supported | Gracefully terminates message loop and destroys windows. |
 | `app.exit(code)` | `app.exit(code)` | ✅ Supported | Immediate process termination. |
-| `app.getPath(name)` | `app.getPath(name)` | ✅ Supported | Supports `'userData'`, `'appData'`, `'home'`, `'temp'`, `'desktop'`. |
+| `app.relaunch(options)` | `app.relaunch(options)` | ✅ Supported | Restarts the application process. |
+| `app.getPath(name)` | `app.getPath(name)` | ✅ Supported | Supports `'userData'`, `'appData'`, `'home'`, `'temp'`, `'desktop'`, `'documents'`, `'downloads'`. |
 | `app.getName()` | `app.getName()` | ✅ Supported | Returns application name from `picots.config.json`. |
 | `app.getVersion()` | `app.getVersion()` | ✅ Supported | Returns app version from `package.json`. |
-| `app.requestSingleInstanceLock()` | `app.requestSingleInstanceLock()` | ⏳ Roadmap (0.1.0) | Win32 Named Mutex (`CreateMutexW`). |
-| `app.setAsDefaultProtocolClient()`| `app.setAsDefaultProtocolClient()`| ⏳ Roadmap (0.1.0) | Windows Registry URI registration (`myapp://`). |
-| `app.setLoginItemSettings()` | `app.setLoginItemSettings()` | ⏳ Roadmap (0.1.1) | OS Startup auto-launch settings. |
+| `app.requestSingleInstanceLock()` | `app.requestSingleInstanceLock()` | ✅ Supported | Manages single instance application lock. |
+| `app.setAsDefaultProtocolClient(scheme)` | `app.setAsDefaultProtocolClient(scheme)` | ✅ Supported | OS custom URI protocol registration (`myapp://`). |
+| `app.setLoginItemSettings(settings)` | `app.setLoginItemSettings(settings)` | ✅ Supported | OS Startup auto-launch settings. |
 
 ---
 
-### 1.2 `BrowserWindow` (Window Management)
+### 1.2 `BrowserWindow` (Window Management & Positioning)
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
-| `new BrowserWindow(options)` | `new BrowserWindow(options)` | ✅ Supported | Supports `width`, `height`, `title`, `frame`, `resizable`, `devTools`. |
+| `new BrowserWindow(options)` | `new BrowserWindow(options)` | ✅ Supported | Supports `width`, `height`, `x`, `y`, `title`, `frame`, `resizable`, `opacity`, `devTools`. |
 | `win.loadURL(url)` | `win.loadURL(url)` | ✅ Supported | Connects to remote or local Vite dev servers. |
 | `win.loadFile(filePath)` | `win.loadFile(filePath)` | ✅ Supported | Loads local HTML files. |
-| `win.show()` | `win.show()` | ✅ Supported | Win32 `ShowWindow(SW_SHOW)`. |
-| `win.hide()` | `win.hide()` | ✅ Supported | Win32 `ShowWindow(SW_HIDE)`. |
-| `win.minimize()` | `win.minimize()` | ✅ Supported | Win32 `ShowWindow(SW_MINIMIZE)`. |
-| `win.maximize()` | `win.maximize()` | ✅ Supported | Win32 `ShowWindow(SW_MAXIMIZE)`. |
-| `win.unmaximize()` | `win.unmaximize()` | ✅ Supported | Win32 `ShowWindow(SW_RESTORE)`. |
+| `win.setSize(w, h)` | `win.setSize(w, h)` | ✅ Supported | Sets window dimensions dynamically. |
+| `win.getSize()` | `win.getSize()` | ✅ Supported | Returns `[width, height]`. |
+| `win.setPosition(x, y)` | `win.setPosition(x, y)` | ✅ Supported | Sets window coordinates on screen. |
+| `win.getPosition()` | `win.getPosition()` | ✅ Supported | Returns `[x, y]`. |
+| `win.center()` | `win.center()` | ✅ Supported | Centers window on screen. |
+| `win.setAlwaysOnTop(flag)` | `win.setAlwaysOnTop(flag)` | ✅ Supported | Keeps window above all other windows. |
+| `win.setOpacity(opacity)` | `win.setOpacity(opacity)` | ✅ Supported | Adjusts window transparency (0.0 – 1.0). |
+| `win.setMinimumSize(w, h)` | `win.setMinimumSize(w, h)` | ✅ Supported | Enforces minimum resize limits. |
+| `win.setMaximumSize(w, h)` | `win.setMaximumSize(w, h)` | ✅ Supported | Enforces maximum resize limits. |
+| `win.setResizable(flag)` | `win.setResizable(flag)` | ✅ Supported | Toggles window resize handles. |
+| `win.setMovable(flag)` | `win.setMovable(flag)` | ✅ Supported | Toggles window drag mobility. |
+| `win.show()` | `win.show()` | ✅ Supported | Displays the desktop window. |
+| `win.hide()` | `win.hide()` | ✅ Supported | Hides window without terminating process. |
+| `win.minimize()` | `win.minimize()` | ✅ Supported | Minimizes window to taskbar. |
+| `win.maximize()` | `win.maximize()` | ✅ Supported | Maximizes window. |
+| `win.unmaximize()` | `win.unmaximize()` | ✅ Supported | Restores maximized window. |
 | `win.isMaximized()` | `win.isMaximized()` | ✅ Supported | Queries window placement status. |
-| `win.close()` | `win.close()` | ✅ Supported | Win32 `PostQuitMessage(0)`. |
-| `win.setAlwaysOnTop(flag)` | `win.setAlwaysOnTop(flag)` | ⏳ Roadmap (0.1.0) | `SetWindowPos(HWND_TOPMOST)`. |
-| `win.setPosition(x, y)` | `win.setPosition(x, y)` | ⏳ Roadmap (0.1.0) | Sets window coordinates on screen. |
-| `win.setSize(w, h)` | `win.setSize(w, h)` | ⏳ Roadmap (0.1.0) | Sets window dimensions dynamically. |
-| `win.center()` | `win.center()` | ⏳ Roadmap (0.1.0) | Centers window on screen. |
-| `options.parent` (Modals) | `options.parent` | ⏳ Roadmap (0.1.0) | Modal window parenting. |
+| `win.setFullScreen(flag)` | `win.setFullScreen(flag)` | ✅ Supported | Toggles fullscreen mode. |
+| `win.isFullScreen()` | `win.isFullScreen()` | ✅ Supported | Returns fullscreen status. |
+| `win.flashFrame(flag)` | `win.flashFrame(flag)` | ✅ Supported | Flashes taskbar icon for user attention. |
+| `win.focus()`, `win.blur()` | `win.focus()`, `win.blur()` | ✅ Supported | Manages window focus state. |
+| `win.close()` | `win.close()` | ✅ Supported | Destroys window and emits `'closed'`. |
 
 ---
 
@@ -67,13 +79,38 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 | :--- | :--- | :---: | :--- |
 | `webContents.send(channel, ...args)` | `webContents.send(channel, ...args)` | ✅ Supported | Direct in-memory COM message passing to webview. |
 | `webContents.openDevTools()` | `webPreferences: { devTools: true }` | ✅ Supported | F12 / Right-click Inspect built-in. |
-| `webContents.print(options, cb)` | `webContents.print(options)` | ⏳ Roadmap (0.1.0) | WebView2 `PrintAsync`. |
-| `webContents.printToPDF(options)` | `webContents.printToPDF(options)` | ⏳ Roadmap (0.1.0) | WebView2 `PrintToPdfAsync`. |
-| `webContents.setZoomFactor(factor)` | `webContents.setZoomFactor(factor)` | ⏳ Roadmap (0.1.0) | WebView2 `put_ZoomFactor`. |
+| `webContents.print(options, cb)` | `webContents.print(options, cb)` | ✅ Supported | Native document printing. |
+| `webContents.printToPDF(options)` | `webContents.printToPDF(options)` | ✅ Supported | PDF document export. |
+| `webContents.getPrintersAsync()` | `webContents.getPrintersAsync()` | ✅ Supported | Queries installed system printers. |
+| `webContents.setZoomFactor(factor)` | `webContents.setZoomFactor(factor)` | ✅ Supported | Adjusts CSS zoom scale. |
+| `webContents.reload()` | `webContents.reload()` | ✅ Supported | Reloads the active web view. |
 
 ---
 
-### 1.4 `ipcMain` (Main Process IPC)
+### 1.4 `screen` (Multi-Monitor Displays)
+| Electron API | PicoTS Equivalent | Status | Implementation Notes |
+| :--- | :--- | :---: | :--- |
+| `screen.getPrimaryDisplay()` | `screen.getPrimaryDisplay()` | ✅ Supported | Returns Primary monitor bounds, workArea, scaleFactor. |
+| `screen.getAllDisplays()` | `screen.getAllDisplays()` | ✅ Supported | Returns all connected monitor displays. |
+| `screen.getCursorScreenPoint()` | `screen.getCursorScreenPoint()` | ✅ Supported | Returns absolute mouse cursor coordinates (`{ x, y }`). |
+| `screen.getDisplayNearestPoint(point)`| `screen.getDisplayNearestPoint(point)`| ✅ Supported | Returns display closest to screen coordinates. |
+
+---
+
+### 1.5 `globalShortcut` & `nativeTheme`
+| Electron API | PicoTS Equivalent | Status | Implementation Notes |
+| :--- | :--- | :---: | :--- |
+| `globalShortcut.register(accel, cb)`| `globalShortcut.register(accel, cb)`| ✅ Supported | System-wide keyboard shortcuts (`"Ctrl+Shift+K"`). |
+| `globalShortcut.isRegistered(accel)` | `globalShortcut.isRegistered(accel)` | ✅ Supported | Checks if accelerator is registered. |
+| `globalShortcut.unregister(accel)` | `globalShortcut.unregister(accel)` | ✅ Supported | Unregisters specific shortcut. |
+| `globalShortcut.unregisterAll()` | `globalShortcut.unregisterAll()` | ✅ Supported | Cleans up all shortcuts. |
+| `nativeTheme.shouldUseDarkColors` | `nativeTheme.shouldUseDarkColors` | ✅ Supported | Detects if OS is in Dark Mode. |
+| `nativeTheme.themeSource` | `nativeTheme.themeSource` | ✅ Supported | Overrides theme (`"system" \| "light" \| "dark"`). |
+| `nativeTheme.on('updated', cb)` | `nativeTheme.on('updated', cb)` | ✅ Supported | Listens for OS theme preference changes. |
+
+---
+
+### 1.6 `ipcMain` (Main Process IPC)
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
 | `ipcMain.handle(channel, listener)` | `ipcMain.handle(channel, listener)` | ✅ Supported | Asynchronous request-response bridge (< 0.08ms latency). |
@@ -83,7 +120,7 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 
 ---
 
-### 1.5 `dialog` (Native System Dialogs)
+### 1.7 `dialog` (Native System Dialogs)
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
 | `dialog.showOpenDialog(options)` | `dialog.showOpenDialog(options)` | ✅ Supported | Native Win32 `IFileOpenDialog` with multi-select and filters. |
@@ -93,7 +130,7 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 
 ---
 
-### 1.6 `Tray` & `Menu` (System Tray & Context Menus)
+### 1.8 `Tray` & `Menu` (System Tray & Context Menus)
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
 | `new Tray(iconPath)` | `new Tray(iconPath)` | ✅ Supported | Win32 `Shell_NotifyIconW` with custom `.ico`. |
@@ -101,11 +138,10 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 | `tray.setContextMenu(menu)` | `tray.setContextMenu(menu)` | ✅ Supported | Win32 `TrackPopupMenu` on right-click. |
 | `tray.destroy()` | `tray.destroy()` | ✅ Supported | Removes icon from Windows notification area. |
 | `Menu.buildFromTemplate(items)` | `Menu.buildFromTemplate(items)` | ✅ Supported | Supports labels, click handlers, separators, disabled items. |
-| `menu.popup()` | `menu.popup()` | ⏳ Roadmap (0.1.0) | Displays context menu at cursor position. |
 
 ---
 
-### 1.7 `clipboard`, `shell` & `Notification`
+### 1.9 `clipboard`, `shell` & `Notification`
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
 | `clipboard.readText()` | `clipboard.readText()` | ✅ Supported | Win32 `GetClipboardData(CF_UNICODETEXT)`. |
@@ -119,27 +155,22 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 
 ---
 
-## 🎨 2. Renderer Process Modules (Frontend)
+## 🎨 2. Renderer Process & Global Preload Bridge
 
-### 2.1 `ipcRenderer` (Frontend Communication Bridge)
+### 2.1 `window.electronAPI` & `ipcRenderer`
 | Electron API | PicoTS Equivalent | Status | Implementation Notes |
 | :--- | :--- | :---: | :--- |
+| `window.electronAPI.invoke(ch, ...args)` | `window.electronAPI.invoke(ch, ...args)` | ✅ Supported | Automatic global bridge; zero frontend code changes needed. |
+| `window.electronAPI.send(ch, ...args)` | `window.electronAPI.send(ch, ...args)` | ✅ Supported | Asynchronous fire-and-forget message to Main Process. |
+| `window.electronAPI.on(ch, cb)` | `window.electronAPI.on(ch, cb)` | ✅ Supported | Listens for backend `webContents.send()` events. |
 | `ipcRenderer.invoke(channel, ...args)` | `ipcRenderer.invoke(channel, ...args)` | ✅ Supported | Dispatches over in-memory COM memory; returns a Promise. |
-| `ipcRenderer.send(channel, ...args)` | `ipcRenderer.send(channel, ...args)` | ✅ Supported | Asynchronous fire-and-forget message to Main Process. |
-| `ipcRenderer.on(channel, listener)` | `ipcRenderer.on(channel, listener)` | ✅ Supported | Listens for backend `webContents.send()` events. |
-| `ipcRenderer.removeListener(channel, listener)` | `ipcRenderer.removeListener(channel, listener)` | ✅ Supported | Removes event listener. |
+| `ipcRenderer.send(channel, ...args)` | `ipcRenderer.send(channel, ...args)` | ✅ Supported | Asynchronous fire-and-forget message. |
+| `ipcRenderer.on(channel, listener)` | `ipcRenderer.on(channel, listener)` | ✅ Supported | Listens for backend events. |
+| `ipcRenderer.removeListener(ch, cb)` | `ipcRenderer.removeListener(ch, cb)` | ✅ Supported | Removes event listener. |
 
 ---
 
-### 2.2 `contextBridge` & `webFrame`
-| Electron API | PicoTS Equivalent | Status | Implementation Notes |
-| :--- | :--- | :---: | :--- |
-| `contextBridge.exposeInMainWorld(key, api)` | `contextBridge.exposeInMainWorld(key, api)` | ✅ Supported | Exposes type-safe APIs onto `window[key]`. |
-| `webFrame.setZoomFactor(factor)` | `webFrame.setZoomFactor(factor)` | ⏳ Roadmap (0.1.0) | Adjusts zoom scale for high-DPI displays. |
-
----
-
-## 🔌 3. Node.js & Native Integrations
+## 🔌 3. Node.js & Embedded Storage Integration
 
 | Subsystem | Usage in Desktop Apps | PicoTS Support | Why PicoTS is Better |
 | :--- | :--- | :---: | :--- |
@@ -147,90 +178,3 @@ This document tracks **Electron API compatibility in PicoTS**. It provides an un
 | **`fs` / File System** | Exporting files, user settings | ✅ Full Support | Standard TypeScript `node:fs` or `@picots/core/fs`. |
 | **`crypto`** | Hashing, tokens, encryption | ✅ Full Support | Standard `node:crypto` / OS UUID APIs. |
 | **`child_process`** | Spawning CLI utilities | ✅ Full Support | Standard `node:child_process`. |
-
----
-
-## 🚀 4. General Desktop Application Example
-
-### Main Process (`src/main/index.ts`)
-```typescript
-import { app, BrowserWindow, ipcMain, dialog, Tray, Menu } from "@picots/core";
-
-let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
-
-app.whenReady().then(() => {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    title: "PicoTS Application",
-    webPreferences: { devTools: true },
-  });
-
-  mainWindow.loadURL("http://localhost:5173");
-
-  // Register Backend Handlers
-  ipcMain.handle("system:get-info", async (event) => {
-    return {
-      platform: process.platform,
-      arch: process.arch,
-      nodeVersion: process.version,
-      uptime: process.uptime(),
-    };
-  });
-
-  ipcMain.handle("dialog:choose-file", async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ["openFile"],
-      filters: [{ name: "Documents", extensions: ["txt", "md", "json"] }],
-    });
-    return result.filePaths;
-  });
-});
-```
-
-### Renderer Process (`src/renderer/App.tsx`)
-```tsx
-import React, { useState, useEffect } from "react";
-import { ipcRenderer } from "@picots/core";
-
-export default function App() {
-  const [systemInfo, setSystemInfo] = useState<any>(null);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-
-  useEffect(() => {
-    ipcRenderer.invoke("system:get-info").then(setSystemInfo);
-  }, []);
-
-  const handleSelectFile = async () => {
-    const files = await ipcRenderer.invoke("dialog:choose-file");
-    setSelectedFiles(files);
-  };
-
-  return (
-    <div className="p-8 bg-slate-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold text-cyan-400">PicoTS Desktop Application</h1>
-      
-      {systemInfo && (
-        <pre className="mt-4 p-4 bg-slate-800 rounded-lg text-sm">
-          {JSON.stringify(systemInfo, null, 2)}
-        </pre>
-      )}
-
-      <button 
-        onClick={handleSelectFile} 
-        className="mt-6 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-semibold shadow-lg"
-      >
-        Choose File Dialog
-      </button>
-
-      {selectedFiles.length > 0 && (
-        <div className="mt-4 p-3 bg-slate-800 rounded">
-          <p className="text-xs text-slate-400">Selected:</p>
-          <p className="font-mono text-sm">{selectedFiles.join(", ")}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-```

@@ -8,6 +8,9 @@ export * from "./notification";
 export * from "./tray";
 export * from "./ipc";
 export * from "./logger";
+export * from "./screen";
+export * from "./globalShortcut";
+export * from "./nativeTheme";
 export * from "./config";
 
 import { app } from "./app";
@@ -16,9 +19,12 @@ import { dialog } from "./dialog";
 import { fs } from "./fs";
 import { clipboard } from "./clipboard";
 import { shell } from "./shell";
-import { notification } from "./notification";
+import { notification, Notification } from "./notification";
 import { tray, Tray, Menu } from "./tray";
 import { ipcMain, ipcRenderer } from "./ipc";
+import { screen } from "./screen";
+import { globalShortcut } from "./globalShortcut";
+import { nativeTheme } from "./nativeTheme";
 import { defineConfig } from "./config";
 
 export const picots = {
@@ -30,11 +36,15 @@ export const picots = {
   clipboard,
   shell,
   notification,
+  Notification,
   tray,
   Tray,
   Menu,
   ipcMain,
   ipcRenderer,
+  screen,
+  globalShortcut,
+  nativeTheme,
   defineConfig,
 };
 

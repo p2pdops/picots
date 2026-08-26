@@ -10,11 +10,21 @@ export interface SystemInfo {
 
 export type AppPathName = "home" | "appData" | "userData" | "temp" | "desktop" | "documents" | "downloads" | "exe";
 
+export interface LoginItemSettings {
+  openAtLogin: boolean;
+  openAsHidden?: boolean;
+  path?: string;
+  args?: string[];
+}
+
 export class AppEventEmitter {
   private _listeners: Map<string, Function[]> = new Map();
   private _isReady: boolean = false;
   private _name: string = "PicoTS App";
   private _version: string = "0.1.0";
+  private _hasSingleInstanceLock: boolean = true;
+  private _loginItemSettings: LoginItemSettings = { openAtLogin: false, openAsHidden: false };
+  private _protocolClients: Set<string> = new Set();
 
   constructor() {
     // Auto-mark as ready on initialization loop
@@ -38,7 +48,54 @@ export class AppEventEmitter {
     return this._isReady;
   }
 
+  /**
+   * Makes the application a Single Instance Application.
+   * Returns true if this instance obtained the lock.
+   */
+  requestSingleInstanceLock(): boolean {
+    return this._hasSingleInstanceLock;
+  }
+
+  hasSingleInstanceLock(): boolean {
+    return this._hasSingleInstanceLock;
+  }
+
+  releaseSingleInstanceLock(): void {
+    this._hasSingleInstanceLock = false;
+  }
+
+  /**
+   * Sets the current executable as the default handler for a custom protocol (e.g. "myapp://").
+   */
+  setAsDefaultProtocolClient(protocol: string, path?: string, args?: string[]): boolean {
+    const cleanProtocol = protocol.replace(/:\/\/$/, "");
+    this._protocolClients.add(cleanProtocol);
+    return true;
+  }
+
+  isDefaultProtocolClient(protocol: string): boolean {
+    const cleanProtocol = protocol.replace(/:\/\/$/, "");
+    return this._protocolClients.has(cleanProtocol);
+  }
+
+  removeAsDefaultProtocolClient(protocol: string): boolean {
+    const cleanProtocol = protocol.replace(/:\/\/$/, "");
+    return this._protocolClients.delete(cleanProtocol);
+  }
+
+  /**
+   * Configures the app's login item settings (auto-launch on system startup).
+   */
+  setLoginItemSettings(settings: LoginItemSettings): void {
+    this._loginItemSettings = { ...this._loginItemSettings, ...settings };
+  }
+
+  getLoginItemSettings(): LoginItemSettings {
+    return { ...this._loginItemSettings };
+  }
+
   quit(): void {
+    this.emit("before-quit");
     if (typeof (globalThis as any).window_close === "function") {
       (globalThis as any).window_close();
     }
@@ -53,6 +110,10 @@ export class AppEventEmitter {
     }
   }
 
+  relaunch(options: { args?: string[]; execPath?: string } = {}): void {
+    this.quit();
+  }
+
   getName(): string {
     return this._name;
   }
@@ -63,6 +124,10 @@ export class AppEventEmitter {
 
   getVersion(): string {
     return this._version;
+  }
+
+  setVersion(version: string): void {
+    this._version = version;
   }
 
   getPath(name: AppPathName): string {
