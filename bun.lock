@@ -18,12 +18,12 @@
         "react-dom": "^19.0.0",
       },
       "devDependencies": {
+        "@picots/cli": "workspace:*",
         "@picots/vite-plugin": "workspace:*",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
         "@vitejs/plugin-react": "^4.3.4",
         "autoprefixer": "^10.4.20",
-        "picots": "workspace:*",
         "postcss": "^8.4.49",
         "tailwindcss": "^3.4.17",
         "typescript": "^5.7.0",
@@ -39,10 +39,11 @@
       },
     },
     "packages/create-picots": {
-      "name": "create-picots",
+      "name": "@picots/create",
       "version": "0.0.1",
       "bin": {
         "create-picots": "./bin/create.js",
+        "picots-create": "./bin/create.js",
       },
       "devDependencies": {
         "@types/node": "^22.10.0",
@@ -50,7 +51,7 @@
       },
     },
     "packages/picots": {
-      "name": "picots",
+      "name": "@picots/cli",
       "version": "0.0.1",
       "bin": {
         "picots": "./bin/picots.js",
@@ -196,7 +197,11 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
+    "@picots/cli": ["@picots/cli@workspace:packages/picots"],
+
     "@picots/core": ["@picots/core@workspace:packages/core"],
+
+    "@picots/create": ["@picots/create@workspace:packages/create-picots"],
 
     "@picots/vite-plugin": ["@picots/vite-plugin@workspace:packages/vite-plugin"],
 
@@ -298,8 +303,6 @@
 
     "convert-source-map": ["convert-source-map@2.0.0", "", {}, "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg=="],
 
-    "create-picots": ["create-picots@workspace:packages/create-picots"],
-
     "cssesc": ["cssesc@3.0.0", "", { "bin": { "cssesc": "bin/cssesc" } }, "sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg=="],
 
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
@@ -385,8 +388,6 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
-
-    "picots": ["picots@workspace:packages/picots"],
 
     "pirates": ["pirates@4.0.7", "", {}, "sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA=="],
 

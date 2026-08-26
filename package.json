@@ -1,6 +1,6 @@
 {
   "name": "picots-monorepo",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "bun run build:packages && bun run --filter starter-app build",
-    "build:packages": "bun run --filter \"@picots/webview\" build && bun run --filter \"@picots/core\" build && bun run --filter \"@picots/vite-plugin\" build && bun run --filter \"picots\" build && bun run --filter \"create-picots\" build",
+    "build:packages": "bun run --filter \"@picots/webview\" build && bun run --filter \"@picots/core\" build && bun run --filter \"@picots/vite-plugin\" build && bun run --filter \"@picots/cli\" build && bun run --filter \"@picots/create\" build",
     "test:pack": "bun run build:packages && cd packages/core && npm pack --dry-run && cd ../webview && npm pack --dry-run && cd ../vite-plugin && npm pack --dry-run && cd ../picots && npm pack --dry-run && cd ../create-picots && npm pack --dry-run",
     "release:publish": "bun run build:packages && cd packages/core && npm publish --access public && cd ../webview && npm publish --access public && cd ../vite-plugin && npm publish --access public && cd ../picots && npm publish --access public && cd ../create-picots && npm publish --access public"
   },

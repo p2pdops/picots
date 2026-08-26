@@ -9,9 +9,9 @@
     "start": ".\\dist\\my-picots-app.exe"
   },
   "dependencies": {
-    "@picots/core": "^0.1.0"
+    "@picots/core": "^0.0.1"
   },
   "devDependencies": {
-    "picots": "^0.1.0"
+    "@picots/cli": "^0.0.1"
   }
 }

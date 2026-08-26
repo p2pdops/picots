@@ -1,12 +1,13 @@
 {
-  "name": "create-picots",
-  "version": "0.0.1",
+  "name": "@picots/create",
+  "version": "0.0.2",
   "description": "Scaffolding tool for new PicoTS desktop applications",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "create-picots": "./bin/create.js"
+    "create-picots": "./bin/create.js",
+    "picots-create": "./bin/create.js"
   },
   "exports": {
     ".": {
