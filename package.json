@@ -14,6 +14,7 @@
     "release:publish": "bun run build:packages && cd packages/core && npm publish --access public && cd ../webview && npm publish --access public && cd ../vite-plugin && npm publish --access public && cd ../picots && npm publish --access public && cd ../create-picots && npm publish --access public"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
   }
 }
