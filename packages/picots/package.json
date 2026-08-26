@@ -1,6 +1,6 @@
 {
   "name": "@picots/cli",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Master CLI compiler and bundler for PicoTS desktop applications",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,8 +22,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@picots/core": "^0.0.23",
-    "@picots/webview": "^0.0.23"
+    "@picots/core": "^0.0.24",
+    "@picots/webview": "^0.0.24"
   },
   "author": "p2pdops",
   "license": "MIT",

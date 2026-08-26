@@ -7,6 +7,7 @@ export type IpcMainHandler = (event: IpcMainInvokeEvent, ...args: any[]) => any 
 export type IpcRendererListener = (event: any, ...args: any[]) => void;
 
 export interface ElectronAPIBridge {
+  [channel: string]: any;
   invoke(channel: string, ...args: any[]): Promise<any>;
   send(channel: string, ...args: any[]): void;
   on(channel: string, listener: IpcRendererListener): any;

@@ -4,6 +4,16 @@ export interface WebPreferences {
   preload?: string;
   devTools?: boolean;
   zoomFactor?: number;
+  offscreen?: boolean;
+  sandbox?: boolean;
+  webSecurity?: boolean;
+  allowRunningInsecureContent?: boolean;
+  webviewTag?: boolean;
+  plugins?: boolean;
+  experimentalFeatures?: boolean;
+  scrollBounce?: boolean;
+  backgroundThrottling?: boolean;
+  [key: string]: any;
 }
 
 export interface PrinterInfo {
@@ -25,6 +35,7 @@ export interface PrintOptions {
     bottom?: number;
     left?: number;
     right?: number;
+    [key: string]: any;
   };
   landscape?: boolean;
   scaleFactor?: number;
@@ -33,7 +44,8 @@ export interface PrintOptions {
   copies?: number;
   header?: string;
   footer?: string;
-  pageSize?: "A3" | "A4" | "A5" | "Legal" | "Letter" | "Tabloid" | { width: number; height: number };
+  pageSize?: "A3" | "A4" | "A5" | "Legal" | "Letter" | "Tabloid" | string | { width: number; height: number };
+  [key: string]: any;
 }
 
 export interface PrintToPDFOptions {
@@ -47,10 +59,20 @@ export interface PrintToPDFOptions {
   marginBottom?: number;
   marginLeft?: number;
   marginRight?: number;
+  margins?: {
+    marginType?: "default" | "none" | "printableArea" | "custom";
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+    [key: string]: any;
+  };
+  pageSize?: "A3" | "A4" | "A5" | "Legal" | "Letter" | "Tabloid" | string | { width: number; height: number };
   pageRanges?: string;
   headerTemplate?: string;
   footerTemplate?: string;
   preferCSSPageSize?: boolean;
+  [key: string]: any;
 }
 
 export interface BrowserWindowConstructorOptions {
@@ -83,6 +105,9 @@ export interface BrowserWindowConstructorOptions {
   center?: boolean;
   webPreferences?: WebPreferences;
   icon?: string;
+  useContentSize?: boolean;
+  autoHideMenuBar?: boolean;
+  [key: string]: any;
 }
 
 export class BrowserWindow {

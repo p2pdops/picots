@@ -55,4 +55,37 @@ export const picots = {
   defineConfig,
 };
 
+// Polyfill process.resourcesPath if missing
+if (typeof process !== "undefined" && !(process as any).resourcesPath) {
+  (process as any).resourcesPath = process.cwd();
+}
+
+// Global Electron namespace for 100% drop-in TypeScript compatibility
+declare global {
+  namespace NodeJS {
+    interface Process {
+      resourcesPath?: string;
+    }
+  }
+
+  namespace Electron {
+    export type IpcMainInvokeEvent = import("./ipc").IpcMainInvokeEvent;
+    export type IpcMainEvent = import("./ipc").IpcMainInvokeEvent;
+    export type IpcRendererEvent = any;
+    export type IpcRendererListener = import("./ipc").IpcRendererListener;
+    export type BrowserWindow = import("./window").BrowserWindow;
+    export type BrowserWindowConstructorOptions = import("./window").BrowserWindowConstructorOptions;
+    export type WebPreferences = import("./window").WebPreferences;
+    export type PrintToPDFOptions = import("./window").PrintToPDFOptions;
+    export type PrintOptions = import("./window").PrintOptions;
+    export type MenuItem = import("./tray").MenuItem;
+    export type Menu = import("./tray").Menu;
+    export type Tray = import("./tray").Tray;
+    export type App = typeof app;
+    export type Dialog = typeof dialog;
+    export type Shell = typeof shell;
+    export type Clipboard = typeof clipboard;
+  }
+}
+
 export default picots;
