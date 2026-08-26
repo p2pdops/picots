@@ -12,11 +12,11 @@ export function inlineAssetsToHeader(frontendDir: string): string {
 
   let html = readFileSync(htmlPath, "utf8");
 
-  // 1. Inline all <link rel="stylesheet" href="...">
+  // 1. Inline CSS stylesheets into <style> tags
   const cssRegex = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>|<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*>/gi;
   html = html.replace(cssRegex, (match, p1, p2) => {
     const href = p1 || p2;
-    if (href.startsWith("http://") || href.startsWith("https://")) return match;
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("data:")) return match;
     const cleanPath = href.replace(/^\.?\//, "");
     const fullPath = join(frontendDir, cleanPath);
     if (existsSync(fullPath)) {
@@ -26,15 +26,16 @@ export function inlineAssetsToHeader(frontendDir: string): string {
     return match;
   });
 
-  // 2. Inline all <script src="..."> (including type="module")
-  const scriptRegex = /<script\s+[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi;
-  html = html.replace(scriptRegex, (match, src) => {
-    if (src.startsWith("http://") || src.startsWith("https://")) return match;
+  // 2. Inline JavaScript modules as Base64 Data URIs to eliminate tokenizer conflicts (e.g. inner <script> in React DOM)
+  const scriptRegex = /<script\s+([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi;
+  html = html.replace(scriptRegex, (match, before, src, after) => {
+    if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) return match;
     const cleanPath = src.replace(/^\.?\//, "");
     const fullPath = join(frontendDir, cleanPath);
     if (existsSync(fullPath)) {
-      const jsContent = readFileSync(fullPath, "utf8");
-      return `<script>\n${jsContent}\n</script>`;
+      const jsBuffer = readFileSync(fullPath);
+      const b64 = jsBuffer.toString("base64");
+      return `<script ${before} src="data:text/javascript;base64,${b64}" ${after}></script>`;
     }
     return match;
   });

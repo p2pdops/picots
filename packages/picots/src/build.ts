@@ -15,7 +15,7 @@ export interface BuildOptions {
 export async function buildProject(options: BuildOptions = {}): Promise<string> {
   const cwd = options.cwd || process.cwd();
   const config = options.config || loadConfig(cwd);
-  const devUrl = options.devUrl || process.env.PICOTS_DEV_URL || config.dev?.url;
+  const devUrl = options.devUrl;
 
   const appName = config.name || "picots-app";
   const winConfig = config.window || {};
@@ -181,7 +181,7 @@ LRESULT CALLBACK TraySubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
-    webview::webview w(false, nullptr);
+    webview::webview w(true, nullptr);
     w.set_title("${title}");
     w.set_size(${width}, ${height}, ${winHint});
 
