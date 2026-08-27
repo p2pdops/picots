@@ -37,7 +37,7 @@ These modules cover the functionality required by the vast majority of desktop S
 | **`app`** | `app` | 🟢 Supported (Win32 Bound) | Lifecycle (`whenReady()`, `quit()`, `exit()`), metadata (`getName()`, `getVersion()`), paths (`getPath("userData")`, `appData`, `home`, `temp`), single-instance lock (`requestSingleInstanceLock()` via Named Mutex). |
 | **`ipcMain`** | `ipcMain` | 🟢 Supported | Two-way async IPC (`ipcMain.handle(ch, fn)`), fire-and-forget (`ipcMain.on(ch, fn)`), `removeHandler()`, `removeAllListeners()`. |
 | **`ipcRenderer`** | `ipcRenderer` | 🟢 Supported | `ipcRenderer.invoke(ch, ...args)`, `ipcRenderer.send()`, `ipcRenderer.on()`, `ipcRenderer.removeListener()`. |
-| **`contextBridge`** | Automatic `window.electronAPI` | 🟢 Supported | Automatically exposes `window.electronAPI`, `window.picotsAPI`, and `window.ipcRenderer` globally in the browser environment. |
+| **`contextBridge`** | `contextBridge` | 🟢 Supported | Standard `contextBridge.exposeInMainWorld(apiKey, api)` for type-safe preload script exposure. |
 | **`dialog`** | `dialog` | 🟢 Supported | Native `showOpenDialog()` (files & folders), `showSaveDialog()`, `showMessageBox()` (info, error, warning modals). |
 | **`Tray` & `Menu`** | `Tray` & `Menu` | 🟢 Supported | System notification tray icons (`new Tray(ico)`), tooltips (`setToolTip()`), right-click menus (`Menu.buildFromTemplate()`). |
 | **`globalShortcut`** | `globalShortcut` | 🟢 Supported (Win32 Bound) | System-wide keyboard hotkeys (`register("Ctrl+Shift+K", cb)` via Win32 `RegisterHotKey`). |

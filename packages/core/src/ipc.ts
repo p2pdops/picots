@@ -6,19 +6,8 @@ export interface IpcMainInvokeEvent {
 export type IpcMainHandler = (event: IpcMainInvokeEvent, ...args: any[]) => any | Promise<any>;
 export type IpcRendererListener = (event: any, ...args: any[]) => void;
 
-export type ElectronAPIBridge<T = any> = T & {
-  invoke(channel: string, ...args: any[]): Promise<any>;
-  send(channel: string, ...args: any[]): void;
-  on(channel: string, listener: IpcRendererListener): any;
-  once(channel: string, listener: IpcRendererListener): any;
-  removeListener(channel: string, listener: IpcRendererListener): any;
-  removeAllListeners(channel?: string): any;
-  [key: string]: any;
-};
-
 declare global {
   interface Window {
-    picotsAPI?: ElectronAPIBridge;
     ipcRenderer?: IpcRendererManager;
   }
 }
@@ -189,7 +178,6 @@ export class IpcRendererManager {
   private _listeners: Map<string, IpcRendererListener[]> = new Map();
 
   constructor() {
-    // Expose internal receiver and window.electronAPI / window.picotsAPI for seamless Electron compatibility
     if (typeof window !== "undefined") {
       (window as any).__picots_ipc_receive = (channel: string, ...args: any[]) => {
         const list = this._listeners.get(channel);
@@ -200,39 +188,7 @@ export class IpcRendererManager {
         }
       };
 
-      // Standard Electron Preload window.electronAPI drop-in compatibility with dynamic channel proxy
-      const baseBridge: any = {
-        invoke: (channel: string, ...args: any[]) => this.invoke(channel, ...args),
-        send: (channel: string, ...args: any[]) => this.send(channel, ...args),
-        on: (channel: string, listener: IpcRendererListener) => this.on(channel, listener),
-        once: (channel: string, listener: IpcRendererListener) => this.once(channel, listener),
-        removeListener: (channel: string, listener: IpcRendererListener) => this.removeListener(channel, listener),
-        removeAllListeners: (channel?: string) => this.removeAllListeners(channel),
-      };
-
-      const apiBridge = new Proxy(baseBridge, {
-        get: (target: any, prop: string | symbol) => {
-          if (typeof prop === "string" && prop in target) {
-            return target[prop];
-          }
-          if (typeof prop === "string") {
-            // Supports both invocations and event listener subscriptions with cleanup return
-            return (...args: any[]) => {
-              if (typeof args[0] === "function") {
-                const cb = args[0];
-                const listener: IpcRendererListener = (_event, ...data) => cb(...data);
-                this.on(prop, listener);
-                return () => this.removeListener(prop, listener);
-              }
-              return this.invoke(prop, ...args);
-            };
-          }
-          return target[prop];
-        },
-      });
-
-      (window as any).electronAPI = (window as any).electronAPI || apiBridge;
-      (window as any).picotsAPI = (window as any).picotsAPI || apiBridge;
+      // Standard Electron global ipcRenderer
       (window as any).ipcRenderer = (window as any).ipcRenderer || this;
 
       // Automatic window dragging for elements with .drag-region, -webkit-app-region: drag, or data-picots-drag

@@ -13,6 +13,7 @@ export * from "./globalShortcut";
 export * from "./nativeTheme";
 export * from "./protocol";
 export * from "./sqlite";
+export * from "./contextBridge";
 export * from "./config";
 
 import { app } from "./app";
@@ -24,20 +25,13 @@ import { shell } from "./shell";
 import { notification, Notification } from "./notification";
 import { tray, Tray, Menu, MenuItem } from "./tray";
 import { ipcMain, ipcRenderer } from "./ipc";
+import { contextBridge } from "./contextBridge";
 import { screen } from "./screen";
 import { globalShortcut } from "./globalShortcut";
 import { nativeTheme } from "./nativeTheme";
 import { protocol } from "./protocol";
 import { Database } from "./sqlite";
 import { defineConfig } from "./config";
-
-export const contextBridge = {
-  exposeInMainWorld(apiKey: string, api: any): void {
-    if (typeof window !== "undefined") {
-      (window as any)[apiKey] = api;
-    }
-  },
-};
 
 export const picots = {
   app,

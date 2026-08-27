@@ -1,6 +1,6 @@
 {
   "name": "picots-monorepo",
-  "version": "0.0.32",
+  "version": "0.0.17",
   "private": true,
   "type": "module",
   "workspaces": [
