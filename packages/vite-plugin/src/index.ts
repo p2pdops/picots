@@ -71,6 +71,13 @@ export interface PicotsViteOptions {
    */
   logging?: boolean | LoggingConfig;
   /**
+   * Inject main process handlers directly into the frontend bundle in production.
+   * Useful for single-binary / unified in-memory apps (like starter-app).
+   * For Electron apps with Node native modules (like Prisma/ws), leave false.
+   * @default false
+   */
+  injectMain?: boolean;
+  /**
    * Automatically launch the PicoTS desktop window on Vite dev server start.
    * @default true
    */
@@ -117,8 +124,28 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
     }
   }
 
+  // Determine main process entry
+  let mainEntry = mergedConfig.main;
+  if (!mainEntry) {
+    const mainCandidates = ["src/main/index.ts", "src/main.ts", "src/main/main.ts", "src/index.ts"];
+    for (const candidate of mainCandidates) {
+      if (existsSync(candidate)) {
+        mainEntry = candidate;
+        break;
+      }
+    }
+  }
+
+  let isDevServer = false;
+  let entryFile = "";
+  let hasInjectedEntry = false;
+
   return {
     name: "vite-plugin-picots",
+
+    configResolved(config) {
+      isDevServer = config.command === "serve";
+    },
 
     buildStart() {
       try {
@@ -145,14 +172,54 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
       }
     },
 
-    transformIndexHtml(html) {
-      return [
-        {
-          tag: "script",
-          attrs: { type: "module", src: virtualModuleId },
-          injectTo: "head-prepend",
-        },
-      ];
+    transformIndexHtml(html, ctx) {
+      if (ctx?.server || isDevServer) {
+        return [
+          {
+            tag: "script",
+            attrs: { type: "module", src: virtualModuleId },
+            injectTo: "head-prepend",
+          },
+        ];
+      }
+
+      const scriptMatch = html.match(/<script\s+[^>]*src=["']([^"']+)["']/i);
+      if (scriptMatch && scriptMatch[1]) {
+        entryFile = scriptMatch[1].replace(/^[./\\]+/, "");
+      }
+      return [];
+    },
+
+    transform(code, id) {
+      if (!isDevServer && !hasInjectedEntry) {
+        const normId = id.replace(/\\/g, "/");
+        const isSelfMainOrPreload =
+          (mainEntry && normId.endsWith(mainEntry.replace(/\\/g, "/"))) ||
+          (preloadEntry && normId.endsWith(preloadEntry.replace(/\\/g, "/")));
+
+        if (!isSelfMainOrPreload) {
+          const isEntry =
+            (entryFile && normId.endsWith(entryFile)) ||
+            normId.endsWith("/main.tsx") ||
+            normId.endsWith("/main.ts") ||
+            normId.endsWith("/index.tsx");
+
+          if (isEntry) {
+            hasInjectedEntry = true;
+            let prepend = `window.__PICOTS_IPC_LOGS__ = ${isIpcLogging};\nimport "@picots/core";\n`;
+            if (preloadEntry && existsSync(preloadEntry)) {
+              prepend += `import "${resolve(process.cwd(), preloadEntry).replace(/\\/g, "/")}";\n`;
+            }
+            if (mergedConfig.injectMain && mainEntry && existsSync(mainEntry)) {
+              prepend += `import "${resolve(process.cwd(), mainEntry).replace(/\\/g, "/")}";\n`;
+            }
+            return {
+              code: prepend + code,
+              map: null,
+            };
+          }
+        }
+      }
     },
 
     configureServer(server: ViteDevServer) {

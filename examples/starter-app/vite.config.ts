@@ -9,6 +9,7 @@ export default defineConfig({
       name: "starter-app",
       main: "src/main/index.ts",
       preload: "src/preload/index.ts",
+      injectMain: true,
       logging: {
         ipc: true,
         renderer: true,
