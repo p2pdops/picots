@@ -15,7 +15,13 @@ export * from "./protocol";
 export * from "./sqlite";
 export * from "./contextBridge";
 export * from "./config";
+export * from "./node/crypto";
+export * from "./node/os";
+export * from "./node/path";
 
+import { crypto } from "./node/crypto";
+import { os } from "./node/os";
+import { path } from "./node/path";
 import { app } from "./app";
 import { BrowserWindow, Window } from "./window";
 import { dialog } from "./dialog";
@@ -39,6 +45,9 @@ export const picots = {
   Window,
   dialog,
   fs,
+  crypto,
+  os,
+  path,
   clipboard,
   shell,
   notification,

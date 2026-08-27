@@ -143,6 +143,25 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
   return {
     name: "vite-plugin-picots",
 
+    config(config) {
+      return {
+        resolve: {
+          alias: {
+            "electron": "@picots/core",
+            "node:crypto": "@picots/core",
+            "crypto": "@picots/core",
+            "node:fs": "@picots/core",
+            "fs": "@picots/core",
+            "node:os": "@picots/core",
+            "os": "@picots/core",
+            "node:path": "@picots/core",
+            "path": "@picots/core",
+            ...(Array.isArray(config.resolve?.alias) ? {} : config.resolve?.alias || {}),
+          },
+        },
+      };
+    },
+
     configResolved(config) {
       isDevServer = config.command === "serve";
     },
@@ -165,8 +184,7 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
       if (id === resolvedVirtualModuleId) {
         let preloadImport = "";
         if (preloadEntry && existsSync(preloadEntry)) {
-          const absPreload = resolve(process.cwd(), preloadEntry).replace(/\\/g, "/");
-          preloadImport = `import "/@fs/${absPreload}";\n`;
+          preloadImport = `import "${resolve(process.cwd(), preloadEntry).replace(/\\/g, "/")}";`;
         }
         return `window.__PICOTS_IPC_LOGS__ = ${isIpcLogging};\nimport "@picots/core";\n${preloadImport}`;
       }
@@ -210,7 +228,7 @@ export function picots(options: PicotsViteOptions = {}): Plugin {
             if (preloadEntry && existsSync(preloadEntry)) {
               prepend += `import "${resolve(process.cwd(), preloadEntry).replace(/\\/g, "/")}";\n`;
             }
-            if (mergedConfig.injectMain && mainEntry && existsSync(mainEntry)) {
+            if (mainEntry && existsSync(mainEntry)) {
               prepend += `import "${resolve(process.cwd(), mainEntry).replace(/\\/g, "/")}";\n`;
             }
             return {

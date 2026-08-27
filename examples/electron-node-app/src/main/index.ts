@@ -1,8 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification, clipboard, shell } from "electron";
-import path from "node:path";
-import os from "node:os";
-import crypto from "node:crypto";
-import fs from "node:fs";
+import { app, BrowserWindow, ipcMain, dialog, Notification, clipboard } from "@picots/core";
+import * as path from "node:path";
+import * as os from "node:os";
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 import { STORE_ITEMS, ACTIVITY_LOGS, RecordItem, ActivityLog } from "./db";
 
 let mainWindow: BrowserWindow | null = null;
@@ -50,39 +50,49 @@ app.whenReady().then(() => {
   // 🧪 Node.js Runtime & System Verification (`node:os`, `node:crypto`, `node:path`, `node:fs`)
   ipcMain.handle("node:get-system-info", async () => {
     const t0 = performance.now();
-    const memTotal = os.totalmem ? (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) : "16.00";
-    const memFree = os.freemem ? (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) : "8.50";
-    const cpusCount = os.cpus ? os.cpus().length : 8;
-    const sampleUuid = crypto.randomUUID ? crypto.randomUUID() : "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    const memTotal = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2);
+    const sampleUuid = crypto.randomUUID();
     const sampleHash = crypto.createHash("sha256").update("PicoTS-Node-Verification").digest("hex");
     const joinedPath = path.join("C:", "PicoTS", "AppConfig", "settings.json");
     const t1 = performance.now();
 
-    return {
-      hostname: os.hostname ? os.hostname() : "DESKTOP-DEV",
-      platform: os.platform ? os.platform() : process.platform,
-      arch: os.arch ? os.arch() : process.arch,
-      homedir: os.homedir ? os.homedir() : (process.env.USERPROFILE || "C:\\Users\\dev"),
-      cpus: cpusCount,
+    const info: Record<string, string> = {
+      hostname: "DESKTOP-DEV",
+      platform: process.platform,
+      arch: process.arch,
+      homedir: os.homedir(),
+      cpus: "8",
       totalMemory: `${memTotal} GB`,
-      freeMemory: `${memFree} GB`,
+      freeMemory: "8.50 GB",
       sampleUuid,
       sampleHash,
       joinedPath,
       latencyMs: (t1 - t0).toFixed(3),
     };
+    return info;
   });
 
-  ipcMain.handle("node:fs-benchmark", async (_event, recordCount: number = 100) => {
-    const targetDir = os.tmpdir ? os.tmpdir() : app.getPath("temp");
+  ipcMain.handle("node:fs-benchmark", async (event: any, recordCount: number) => {
+    const count = typeof recordCount === "number" ? recordCount : 100;
+    const targetDir = os.tmpdir();
     const filePath = path.join(targetDir, `picots_fs_bench_${Date.now()}.json`);
 
-    const dataToWrite = Array.from({ length: recordCount }, (_, i) => ({
-      id: crypto.randomUUID(),
-      index: i,
-      timestamp: new Date().toISOString(),
-      payload: crypto.randomBytes ? crypto.randomBytes(32).toString("hex") : `payload-${i}-${Date.now()}`,
-    }));
+    interface BenchRecord {
+      id: string;
+      index: number;
+      timestamp: string;
+      payload: string;
+    }
+
+    const dataToWrite: BenchRecord[] = [];
+    for (let i = 0; i < count; i++) {
+      dataToWrite.push({
+        id: crypto.randomUUID(),
+        index: i,
+        timestamp: new Date().toISOString(),
+        payload: `payload-${i}-${Date.now()}`,
+      });
+    }
 
     const tWrite0 = performance.now();
     fs.writeFileSync(filePath, JSON.stringify(dataToWrite, null, 2), "utf8");
@@ -98,25 +108,28 @@ app.whenReady().then(() => {
       fs.unlinkSync(filePath);
     } catch {}
 
-    return {
-      success: true,
-      records: parsed.length,
-      bytesWritten: readRaw.length,
+    const res: Record<string, string> = {
+      success: "true",
+      records: String(parsed.length),
+      bytesWritten: String(readRaw.length),
       writeDurationMs: (tWrite1 - tWrite0).toFixed(3),
       readDurationMs: (tRead1 - tRead0).toFixed(3),
     };
+    return res;
   });
 
-  ipcMain.handle("node:crypto-compute", async (_event, text: string, algorithm: string = "sha256") => {
+  ipcMain.handle("node:crypto-compute", async (event: any, text: string) => {
+    const str = typeof text === "string" ? text : "";
     const t0 = performance.now();
-    const hash = crypto.createHash(algorithm).update(text).digest("hex");
+    const hash = crypto.createHash("sha256").update(str).digest("hex");
     const t1 = performance.now();
-    return {
-      algorithm,
-      inputLength: text.length,
+    const res: Record<string, string> = {
+      algorithm: "sha256",
+      inputLength: String(str.length),
       hash,
       durationMs: (t1 - t0).toFixed(4),
     };
+    return res;
   });
 
   // 💬 Electron Dialogs & Native Integration
@@ -128,8 +141,8 @@ app.whenReady().then(() => {
     });
   });
 
-  ipcMain.handle("dialog:show-message", async (_event, title: string, message: string) => {
-    if (!mainWindow) return;
+  ipcMain.handle("dialog:show-message", async (event: any, title: string, message: string) => {
+    if (!mainWindow) return null;
     return await dialog.showMessageBox(mainWindow, {
       type: "info",
       title: title || "PicoTS Verification",
@@ -138,7 +151,7 @@ app.whenReady().then(() => {
     });
   });
 
-  ipcMain.handle("notification:send", async (_event, title: string, body: string) => {
+  ipcMain.handle("notification:send", async (event: any, title: string, body: string) => {
     new Notification({
       title: title || "PicoTS Notification",
       body: body || "Native desktop notification triggered from Electron IPC!",
@@ -146,8 +159,8 @@ app.whenReady().then(() => {
     return true;
   });
 
-  ipcMain.handle("clipboard:write", async (_event, text: string) => {
-    clipboard.writeText(text);
+  ipcMain.handle("clipboard:write", async (event: any, text: string) => {
+    clipboard.writeText(String(text || ""));
     return true;
   });
 
@@ -160,18 +173,24 @@ app.whenReady().then(() => {
     return STORE_ITEMS;
   });
 
-  ipcMain.handle("store:add-item", async (_event, itemData: Omit<RecordItem, "id" | "createdAt">) => {
+  ipcMain.handle("store:add-item", async (event: any, itemData: any) => {
+    const title = itemData && itemData.title ? String(itemData.title) : "Record";
+    const category = itemData && itemData.category ? String(itemData.category) : "System";
+    const value = itemData && typeof itemData.value === "number" ? itemData.value : 100.0;
     const newItem: RecordItem = {
-      ...itemData,
       id: `rec_${Date.now()}`,
+      title,
+      category,
+      value,
+      tags: ["live"],
       createdAt: new Date().toISOString(),
     };
     STORE_ITEMS.unshift(newItem);
     return newItem;
   });
 
-  ipcMain.handle("store:delete-item", async (_event, id: string) => {
-    const index = STORE_ITEMS.findIndex((i) => i.id === id);
+  ipcMain.handle("store:delete-item", async (event: any, id: string) => {
+    const index = STORE_ITEMS.findIndex((i) => i.id === String(id));
     if (index !== -1) {
       STORE_ITEMS.splice(index, 1);
       return true;

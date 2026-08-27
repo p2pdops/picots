@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { inlineAssetsToHeader } from "./inliner.js";
 import { loadConfig } from "./config.js";
@@ -45,7 +45,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
   // 1. Terminate previous instances to avoid Windows file locks
   if (process.platform === "win32") {
     try {
-      execSync(`powershell -Command "Get-Process ${appName} -ErrorAction SilentlyContinue | Stop-Process -Force"`, {
+      execSync(`powershell -Command "Get-Process -Name '${appName}*', '${appName}_backend*' -ErrorAction SilentlyContinue | Stop-Process -Force"`, {
         stdio: "ignore",
       });
     } catch {}
@@ -75,6 +75,8 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
     }
   }
 
+  // 4. Compile Native Backend via ScriptC if main entry exists
+  let hasNativeBackend = false;
   // 4. Generate native host source with System Tray, Window Subclassing, and all OS APIs
   const isFrameless = winConfig.frameless === true || winConfig.frame === false;
   const winHint = winConfig.resizable === false ? "WEBVIEW_HINT_FIXED" : "WEBVIEW_HINT_NONE";
@@ -90,6 +92,7 @@ export async function buildProject(options: BuildOptions = {}): Promise<string> 
 #include <commdlg.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -286,6 +289,146 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     }
     ` : ''}
 
+    // 0.1 Node Compatibility: File System Bindings (__picots_fs_*)
+    w.bind("__picots_fs_write", [](const std::string& req) -> std::string {
+        std::string s = req;
+        size_t p1 = s.find("\\\"");
+        if (p1 == std::string::npos) return "false";
+        size_t p2 = s.find("\\\"", p1 + 1);
+        if (p2 == std::string::npos) return "false";
+        std::string filePath = s.substr(p1 + 1, p2 - p1 - 1);
+        
+        size_t d1 = s.find("\\\"", p2 + 1);
+        if (d1 == std::string::npos) return "false";
+        size_t d2 = s.rfind("\\\"");
+        if (d2 <= d1) return "false";
+        std::string content = s.substr(d1 + 1, d2 - d1 - 1);
+
+        std::string unescaped = "";
+        for (size_t i = 0; i < content.length(); i++) {
+            if (content[i] == '\\\\' && i + 1 < content.length()) {
+                if (content[i+1] == 'n') { unescaped += '\\n'; i++; }
+                else if (content[i+1] == 'r') { unescaped += '\\r'; i++; }
+                else if (content[i+1] == 't') { unescaped += '\\t'; i++; }
+                else if (content[i+1] == '"') { unescaped += '"'; i++; }
+                else if (content[i+1] == '\\\\') { unescaped += '\\\\'; i++; }
+                else { unescaped += content[i+1]; i++; }
+            } else {
+                unescaped += content[i];
+            }
+        }
+
+        try {
+            FILE* f = fopen(filePath.c_str(), "wb");
+            if (f) {
+                fwrite(unescaped.c_str(), 1, unescaped.length(), f);
+                fclose(f);
+                return "true";
+            }
+        } catch (...) {}
+        return "false";
+    });
+
+    w.bind("__picots_fs_read", [](const std::string& req) -> std::string {
+        std::string path = ExtractFirstArg(req);
+        try {
+            FILE* f = fopen(path.c_str(), "rb");
+            if (f) {
+                fseek(f, 0, SEEK_END);
+                long sz = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                std::string buf;
+                buf.resize(sz);
+                fread(&buf[0], 1, sz, f);
+                fclose(f);
+                return EscapeJson(buf);
+            }
+        } catch (...) {}
+        return "\\"\\"";
+    });
+
+    w.bind("__picots_fs_exists", [](const std::string& req) -> std::string {
+        std::string path = ExtractFirstArg(req);
+        DWORD attr = GetFileAttributesA(path.c_str());
+        return (attr != INVALID_FILE_ATTRIBUTES) ? "true" : "false";
+    });
+
+    w.bind("__picots_fs_unlink", [](const std::string& req) -> std::string {
+        std::string path = ExtractFirstArg(req);
+        DeleteFileA(path.c_str());
+        return "true";
+    });
+
+    w.bind("__picots_fs_mkdir", [](const std::string& req) -> std::string {
+        std::string path = ExtractFirstArg(req);
+        CreateDirectoryA(path.c_str(), NULL);
+        return "true";
+    });
+
+    // 0.2 Node Compatibility: OS Query Bindings (__picots_os_*)
+    w.bind("__picots_os_totalmem", [](const std::string&) -> std::string {
+        MEMORYSTATUSEX memInfo;
+        memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+        if (GlobalMemoryStatusEx(&memInfo)) {
+            return std::to_string(memInfo.ullTotalPhys);
+        }
+        return "17179869184";
+    });
+
+    w.bind("__picots_os_freemem", [](const std::string&) -> std::string {
+        MEMORYSTATUSEX memInfo;
+        memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+        if (GlobalMemoryStatusEx(&memInfo)) {
+            return std::to_string(memInfo.ullAvailPhys);
+        }
+        return "8589934592";
+    });
+
+    w.bind("__picots_os_cpus", [](const std::string&) -> std::string {
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        DWORD count = sysInfo.dwNumberOfProcessors;
+        std::ostringstream ss;
+        ss << "[";
+        for (DWORD i = 0; i < count; i++) {
+            if (i > 0) ss << ",";
+            ss << "{\\"model\\":\\"x64 Processor\\",\\"speed\\":3200}";
+        }
+        ss << "]";
+        return ss.str();
+    });
+
+    w.bind("__picots_os_homedir", [](const std::string&) -> std::string {
+        wchar_t userProfile[MAX_PATH];
+        if (GetEnvironmentVariableW(L"USERPROFILE", userProfile, MAX_PATH) > 0) {
+            char utf8[MAX_PATH * 4] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, userProfile, -1, utf8, sizeof(utf8), NULL, NULL);
+            return EscapeJson(utf8);
+        }
+        return "\\"C:\\\\Users\\\\User\\"";
+    });
+
+    w.bind("__picots_os_tmpdir", [](const std::string&) -> std::string {
+        wchar_t tempPath[MAX_PATH];
+        if (GetTempPathW(MAX_PATH, tempPath) > 0) {
+            char utf8[MAX_PATH * 4] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, tempPath, -1, utf8, sizeof(utf8), NULL, NULL);
+            return EscapeJson(utf8);
+        }
+        return "\\"C:\\\\Windows\\\\Temp\\"";
+    });
+
+    w.bind("__picots_os_hostname", [](const std::string&) -> std::string {
+        wchar_t compName[MAX_COMPUTERNAME_LENGTH + 1];
+        DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+        if (GetComputerNameW(compName, &size)) {
+            char utf8[MAX_PATH * 4] = {0};
+            WideCharToMultiByte(CP_UTF8, 0, compName, -1, utf8, sizeof(utf8), NULL, NULL);
+            return EscapeJson(utf8);
+        }
+        return "\\"DESKTOP-APP\\"";
+    });
+
     // 1. System Info
     w.bind("get_system_info", [](const std::string&) -> std::string {
         char currentDir[MAX_PATH];
@@ -297,10 +440,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
            << "\\"arch\\":\\"x64\\","
            << "\\"cwd\\":\\"" << EscapeJson(currentDir) << "\\","
            << "\\"pid\\":" << GetCurrentProcessId() << ","
-           << "\\"isScriptcNative\\":true,"
            << "\\"features\\":["
            << "\\"Direct Win32 COM Memory IPC (Zero HTTP, 0 Open Ports)\\","
            << "\\"Pure Single-Executable Architecture (< 500 KB)\\","
+           << "\\"Native Win32 Node Compatibility Layer (node:fs, node:os, node:crypto)\\","
            << "\\"Native Win32 System Tray & Context Menus\\","
            << "\\"Native Win32 Open File Picker Dialogs (GetOpenFileNameW)\\","
            << "\\"Native OS Clipboard (Read/Write/Clear)\\","
@@ -611,7 +754,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
   const hostSrcPath = join(tempDir, "host.cc");
   writeFileSync(hostSrcPath, nativeSource, "utf8");
 
-  // 5. Compile with g++
+  // 6. Compile with g++
   console.log("🔨 Compiling single standalone binary...");
   const finalExe = join(outDir, `${appName}.exe`);
 
@@ -624,3 +767,4 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
   console.log(`\n🎉 [PicoTS] Build complete: ${finalExe}\n`);
   return finalExe;
 }
+

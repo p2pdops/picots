@@ -301,6 +301,12 @@ export class IpcRendererManager {
       if (typeof (globalThis as any)[normalizedName] === "function") {
         const raw = await (globalThis as any)[normalizedName](...args);
         result = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } else if (typeof (globalThis as any).picots_ipc_dispatch === "function") {
+        // Direct native COM IPC dispatcher to ScriptC backend
+        const raw = await (globalThis as any).picots_ipc_dispatch(JSON.stringify({ channel, args }));
+        const res = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (res && res.__picots_error) throw new Error(res.__picots_error);
+        result = res?.__picots_result !== undefined ? res.__picots_result : res;
       } else if (typeof (globalThis as any).invoke === "function") {
         // 2. Generic native invoke dispatcher
         const res = await (globalThis as any).invoke(channel, ...args);
