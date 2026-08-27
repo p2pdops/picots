@@ -16,7 +16,7 @@ import {
 // Reference to current window
 const win = new BrowserWindow();
 
-type TabType = "dashboard" | "ipc-main" | "native-os" | "files" | "benchmark";
+type TabType = "dashboard" | "electron-bridge" | "ipc-main" | "native-os" | "files" | "benchmark";
 
 interface UserProfile {
   id: string;
@@ -28,8 +28,17 @@ interface UserProfile {
   memoryUsageMb: number;
 }
 
+interface BridgeLogEntry {
+  id: string;
+  time: string;
+  channel: string;
+  duration: string;
+  status: "success" | "error";
+  response?: any;
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabType>("electron-bridge");
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [latency, setLatency] = useState<string>("--");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("");
@@ -43,6 +52,18 @@ export default function App() {
   const [hashInput, setHashInput] = useState<string>("PicoTS Fast Native IPC");
   const [hashResult, setHashResult] = useState<{ input: string; hash: string } | null>(null);
 
+  // Electron Preload Bridge State (window.electronAPI)
+  const [bridgeStatus, setBridgeStatus] = useState<string>("Checking...");
+  const [bridgeMethods, setBridgeMethods] = useState<string[]>([]);
+  const [bridgeAppState, setBridgeAppState] = useState<any>(null);
+  const [bridgeItems, setBridgeItems] = useState<any[]>([]);
+  const [bridgeSearch, setBridgeSearch] = useState<string>("");
+  const [bridgeInvoice, setBridgeInvoice] = useState<any>(null);
+  const [bridgeSalesHistory, setBridgeSalesHistory] = useState<any[]>([]);
+  const [bridgePushEvent, setBridgePushEvent] = useState<any>(null);
+  const [bridgeLogs, setBridgeLogs] = useState<BridgeLogEntry[]>([]);
+  const [selectedResponse, setSelectedResponse] = useState<any>(null);
+
   // File Explorer State
   const [fileData, setFileData] = useState<ListFilesResult | null>(null);
   const [currentDir, setCurrentDir] = useState<string>("");
@@ -51,6 +72,26 @@ export default function App() {
   const [benchRunning, setBenchRunning] = useState<boolean>(false);
   const [benchStats, setBenchStats] = useState<{ avg: string; min: string; max: string; rps: string } | null>(null);
   const [benchLogs, setBenchLogs] = useState<Array<{ id: number; diff: string }>>([]);
+
+  useEffect(() => {
+    // Check window.electronAPI availability
+    if (typeof window !== "undefined" && (window as any).electronAPI) {
+      const keys = Object.keys((window as any).electronAPI);
+      setBridgeMethods(keys);
+      setBridgeStatus(`Active (${keys.length} exposed methods)`);
+    } else {
+      setBridgeStatus("Not Found");
+    }
+
+    // Subscribe to push events via window.electronAPI
+    if (typeof window !== "undefined" && (window as any).electronAPI?.["events:on-notification"]) {
+      const unsubscribe = (window as any).electronAPI["events:on-notification"]((data: any) => {
+        setBridgePushEvent(data);
+        logBridgeCall("events:notification-received", "0.10", "success", data);
+      });
+      return () => unsubscribe && unsubscribe();
+    }
+  }, []);
 
   useEffect(() => {
     app.getSystemInfo().then((info) => {
@@ -63,6 +104,90 @@ export default function App() {
     fetchUserProfile();
     measureLatency();
   }, []);
+
+  const logBridgeCall = (channel: string, duration: string, status: "success" | "error", response?: any) => {
+    const entry: BridgeLogEntry = {
+      id: Math.random().toString(36).substring(2, 8),
+      time: new Date().toLocaleTimeString(),
+      channel,
+      duration,
+      status,
+      response,
+    };
+    setBridgeLogs((prev) => [entry, ...prev.slice(0, 19)]);
+    setSelectedResponse({ channel, duration, status, response, time: entry.time });
+  };
+
+  const handleBridgeCall = async (channel: string, fn: () => Promise<any>) => {
+    const t0 = performance.now();
+    try {
+      const res = await fn();
+      const duration = (performance.now() - t0).toFixed(2);
+      logBridgeCall(channel, duration, "success", res);
+      return res;
+    } catch (err: any) {
+      const duration = (performance.now() - t0).toFixed(2);
+      logBridgeCall(channel, duration, "error", { error: err?.message || String(err) });
+      throw err;
+    }
+  };
+
+  const testGetAppState = async () => {
+    const state = await handleBridgeCall("app:get-state", () => (window as any).electronAPI["app:get-state"]());
+    setBridgeAppState(state);
+  };
+
+  const testSaveSettings = async () => {
+    const res = await handleBridgeCall("app:save-settings", () =>
+      (window as any).electronAPI["app:save-settings"]({
+        lastTested: new Date().toISOString(),
+        theme: "dark-neon",
+        posMode: "FAST_SUPERMARKET",
+      })
+    );
+    if (res?.settings) setBridgeAppState((prev: any) => ({ ...prev, settings: res.settings }));
+  };
+
+  const testSearchItems = async (q: string) => {
+    setBridgeSearch(q);
+    const items = await handleBridgeCall("items:search", () => (window as any).electronAPI["items:search"](q));
+    setBridgeItems(items || []);
+  };
+
+  const testGetAllItems = async () => {
+    const items = await handleBridgeCall("items:get-all", () => (window as any).electronAPI["items:get-all"]());
+    setBridgeItems(items || []);
+  };
+
+  const testSaveInvoice = async () => {
+    const mockInvoice = {
+      invoiceNumber: "INV-" + Math.floor(1000 + Math.random() * 9000),
+      customerName: "Rahul Sharma (Gold Tier)",
+      items: [
+        { id: "itm_101", name: "Whole Wheat Bread 400g", price: 45, quantity: 2 },
+        { id: "itm_104", name: "Filter Coffee Blend 250g", price: 180, quantity: 1 },
+      ],
+      totalAmount: 270,
+      paymentMode: "UPI" as const,
+    };
+    const res = await handleBridgeCall("pos:save-invoice", () => (window as any).electronAPI["pos:save-invoice"](mockInvoice));
+    setBridgeInvoice(res);
+  };
+
+  const testGetSalesHistory = async () => {
+    const history = await handleBridgeCall("sales:get-history", () => (window as any).electronAPI["sales:get-history"]({ limit: 5 }));
+    setBridgeSalesHistory(history || []);
+  };
+
+  const testTriggerPushEvent = async () => {
+    handleBridgeCall("events:trigger-mock", async () => {
+      (window as any).electronAPI["events:trigger-mock-event"](
+        "Order Staged #9021",
+        "Cart transferred to Billing Counter 02"
+      );
+      return { triggered: true };
+    });
+  };
 
   const measureLatency = async () => {
     const t0 = performance.now();
@@ -204,8 +329,20 @@ export default function App() {
       {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Navigation */}
-        <aside className="w-56 bg-[#0a0f1d]/80 border-r border-white/5 p-3 flex flex-col justify-between">
+        <aside className="w-60 bg-[#0a0f1d]/80 border-r border-white/5 p-3 flex flex-col justify-between">
           <nav className="space-y-1">
+            <button
+              onClick={() => setActiveTab("electron-bridge")}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === "electron-bridge"
+                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(0,229,255,0.15)]"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              <span>🌉</span>
+              <span>Electron Preload Bridge</span>
+            </button>
+
             <button
               onClick={() => setActiveTab("dashboard")}
               className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
@@ -269,14 +406,288 @@ export default function App() {
 
           {/* Sidebar Footer Metrics */}
           <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1 text-[11px] font-mono">
-            <div className="text-slate-500 uppercase tracking-wider text-[10px]">Architecture</div>
-            <div className="text-cyan-400 font-bold">src/main + src/renderer</div>
-            <div className="text-slate-400 mt-1">COM Roundtrip: <span className="text-emerald-400">{latency}</span></div>
+            <div className="text-slate-500 uppercase tracking-wider text-[10px]">Preload Bridge Status</div>
+            <div className="text-cyan-400 font-bold truncate">window.electronAPI</div>
+            <div className="text-slate-400 mt-1">Status: <span className="text-emerald-400">{bridgeStatus}</span></div>
           </div>
         </aside>
 
         {/* Tab Content Panes */}
         <main className="flex-1 overflow-y-auto p-6">
+          {/* TAB 0: ELECTRON PRELOAD BRIDGE TESTING */}
+          {activeTab === "electron-bridge" && (
+            <div className="space-y-6 max-w-6xl">
+              {/* Header Banner */}
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-purple-500/10 border border-cyan-500/20 backdrop-blur-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
+                        contextBridge.exposeInMainWorld('electronAPI', ...)
+                      </span>
+                      <span className="px-2 py-0.5 text-xs font-mono rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Drop-in Electron Compatibility
+                      </span>
+                    </div>
+                    <h1 className="text-2xl font-bold mt-2 text-white flex items-center gap-2">
+                      <span>🌉 Electron Preload Bridge Suite</span>
+                    </h1>
+                    <p className="text-slate-300 text-xs mt-1 leading-relaxed">
+                      Testing 100% Electron-compatible renderer isolation via <code className="text-cyan-300">window.electronAPI</code> with live IPC logging.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-slate-400 font-mono">Bridge Object</div>
+                    <div className="text-lg font-bold font-mono text-emerald-400">
+                      {typeof window !== "undefined" && (window as any).electronAPI ? "✅ Detected" : "❌ Not Found"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Exposed Methods Badges */}
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="text-xs font-semibold text-slate-400 mb-2">Exposed Methods on window.electronAPI:</div>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                    {bridgeMethods.map((m) => (
+                      <span key={m} className="px-2 py-0.5 text-[11px] font-mono rounded bg-black/40 text-cyan-300 border border-white/5">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Testing Grid */}
+              <div className="grid grid-cols-2 gap-5">
+                {/* 1. App & System State Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                      <span>⚙️</span>
+                      <span>App &amp; Settings</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-cyan-400">app:*</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={testGetAppState}
+                      className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition-all"
+                    >
+                      Fetch State (app:get-state)
+                    </button>
+                    <button
+                      onClick={testSaveSettings}
+                      className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition-all"
+                    >
+                      Save Settings (app:save-settings)
+                    </button>
+                  </div>
+
+                  {bridgeAppState && (
+                    <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-xs font-mono space-y-1 text-slate-300">
+                      <div><span className="text-slate-500">App:</span> {bridgeAppState.appName} (v{bridgeAppState.version})</div>
+                      <div><span className="text-slate-500">Env:</span> {bridgeAppState.environment} | <span className="text-emerald-400">Online</span></div>
+                      <div><span className="text-slate-500">Settings:</span> {JSON.stringify(bridgeAppState.settings)}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Items & Catalog Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                      <span>📦</span>
+                      <span>Items &amp; Catalog Search</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-cyan-400">items:*</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search items (e.g. Bread, Milk, Coffee)..."
+                      value={bridgeSearch}
+                      onChange={(e) => testSearchItems(e.target.value)}
+                      className="flex-1 px-3 py-2 text-xs bg-black/40 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      onClick={testGetAllItems}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition-all"
+                    >
+                      Get All
+                    </button>
+                  </div>
+
+                  {bridgeItems.length > 0 && (
+                    <div className="max-h-36 overflow-y-auto space-y-1">
+                      {bridgeItems.map((item) => (
+                        <div key={item.id} className="p-2 rounded bg-black/30 border border-white/5 text-xs flex justify-between items-center font-mono">
+                          <div>
+                            <div className="text-slate-200 font-sans font-medium">{item.name}</div>
+                            <div className="text-[10px] text-slate-500">{item.barcode} • {item.category}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-cyan-400 font-bold">₹{item.price.toFixed(2)}</div>
+                            <div className="text-[10px] text-slate-400">Stock: {item.stock}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Invoicing & Billing Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                      <span>💳</span>
+                      <span>POS Billing &amp; Sales</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-cyan-400">pos:*, sales:*</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={testSaveInvoice}
+                      className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                    >
+                      Save Mock Invoice (pos:save-invoice)
+                    </button>
+                    <button
+                      onClick={testGetSalesHistory}
+                      className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all"
+                    >
+                      Sales History (sales:get-history)
+                    </button>
+                  </div>
+
+                  {bridgeInvoice && (
+                    <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-xs font-mono text-emerald-300 space-y-1">
+                      <div><span className="text-slate-400">Invoice ID:</span> {bridgeInvoice.invoiceId} (Saved &amp; Logged)</div>
+                      <div className="text-[10px] text-slate-400">{bridgeInvoice.receiptUrl}</div>
+                    </div>
+                  )}
+
+                  {bridgeSalesHistory.length > 0 && (
+                    <div className="p-3 rounded-lg bg-black/40 border border-white/5 text-xs font-mono space-y-1 text-slate-300 max-h-28 overflow-y-auto">
+                      <div className="text-slate-500 text-[10px] uppercase">Recent Invoices ({bridgeSalesHistory.length})</div>
+                      {bridgeSalesHistory.map((inv, idx) => (
+                        <div key={idx} className="flex justify-between border-b border-white/5 pb-1">
+                          <span>{inv.id} - {inv.customerName}</span>
+                          <span className="text-emerald-400 font-bold">₹{inv.totalAmount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Window Controls & Push Events Card */}
+                <div className="p-5 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                      <span>🪟</span>
+                      <span>Window Controls &amp; Events</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-cyan-400">window:*, events:*</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handleBridgeCall("window:minimize", () => (window as any).electronAPI["window:minimize"]())}
+                      className="px-2 py-1.5 text-xs font-semibold rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10"
+                    >
+                      Minimize
+                    </button>
+                    <button
+                      onClick={() => handleBridgeCall("window:maximize", () => (window as any).electronAPI["window:maximize"]())}
+                      className="px-2 py-1.5 text-xs font-semibold rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10"
+                    >
+                      Maximize
+                    </button>
+                    <button
+                      onClick={() => handleBridgeCall("window:toggle-fullscreen", () => (window as any).electronAPI["window:toggle-fullscreen"]())}
+                      className="px-2 py-1.5 text-xs font-semibold rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10"
+                    >
+                      Fullscreen
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={testTriggerPushEvent}
+                    className="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>🔔</span>
+                    <span>Trigger Real-time Push Event (events:trigger-mock)</span>
+                  </button>
+
+                  {bridgePushEvent && (
+                    <div className="p-3 rounded-lg bg-purple-950/30 border border-purple-500/20 text-xs font-mono text-purple-300 space-y-1">
+                      <div className="font-bold flex items-center gap-2">
+                        <span>📩 Event Received:</span>
+                        <span className="text-white">{bridgePushEvent.title}</span>
+                      </div>
+                      <div className="text-slate-300">{bridgePushEvent.message}</div>
+                      <div className="text-[10px] text-slate-500">Timestamp: {bridgePushEvent.time}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Bridge Invocations Log & Inspector */}
+              <div className="grid grid-cols-3 gap-5">
+                {/* Real-time Call Stream */}
+                <div className="col-span-1 p-4 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Bridge Stream Log</h4>
+                    <span className="text-[10px] font-mono text-cyan-400">{bridgeLogs.length} calls</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                    {bridgeLogs.length === 0 ? (
+                      <div className="text-xs text-slate-500 font-mono py-4 text-center">No bridge calls yet. Click any test action above!</div>
+                    ) : (
+                      bridgeLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          onClick={() => setSelectedResponse(log)}
+                          className={`p-2 rounded cursor-pointer border transition-all text-xs font-mono flex items-center justify-between ${
+                            selectedResponse?.channel === log.channel && selectedResponse?.time === log.time
+                              ? "bg-cyan-500/15 border-cyan-500/40 text-white"
+                              : "bg-black/30 border-white/5 text-slate-300 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="truncate">
+                            <span className="text-cyan-400 font-bold">{log.channel}</span>
+                          </div>
+                          <div className="text-right flex items-center gap-1.5 text-[10px]">
+                            <span className="text-emerald-400 font-bold">{log.duration}ms</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Selected Response Inspector */}
+                <div className="col-span-2 p-4 rounded-xl bg-[#0f1523]/70 border border-white/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Response Inspector</h4>
+                    {selectedResponse && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                        {selectedResponse.channel} ({selectedResponse.duration}ms)
+                      </span>
+                    )}
+                  </div>
+                  <pre className="p-3 rounded-lg bg-black/60 border border-white/5 text-xs font-mono text-cyan-300 max-h-56 overflow-y-auto overflow-x-auto">
+                    {selectedResponse
+                      ? JSON.stringify(selectedResponse.response, null, 2)
+                      : '// Click any test button above to inspect live IPC response'}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">

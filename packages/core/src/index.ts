@@ -58,9 +58,17 @@ export const picots = {
   defineConfig,
 };
 
-// Polyfill process.resourcesPath if missing
-if (typeof process !== "undefined" && !(process as any).resourcesPath) {
-  (process as any).resourcesPath = process.cwd();
+// Polyfill process in browser/renderer context for 100% Electron compatibility
+if (typeof globalThis.process === "undefined") {
+  (globalThis as any).process = {
+    env: { NODE_ENV: "development" },
+    platform: "win32",
+    resourcesPath: "/",
+    cwd: () => "/",
+    uptime: () => (typeof performance !== "undefined" ? performance.now() / 1000 : 0),
+  };
+} else if (!(process as any).resourcesPath) {
+  (process as any).resourcesPath = typeof process.cwd === "function" ? process.cwd() : "/";
 }
 
 // Global Electron namespace for 100% drop-in TypeScript compatibility

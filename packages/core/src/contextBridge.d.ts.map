@@ -1,0 +1,1 @@
+{"version":3,"file":"contextBridge.d.ts","sourceRoot":"","sources":["contextBridge.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,aAAa;IAC5B,iBAAiB,CAAC,MAAM,EAAE,MAAM,EAAE,GAAG,EAAE,GAAG,GAAG,IAAI,CAAC;CACnD;AAED,eAAO,MAAM,aAAa,EAAE,aA0B3B,CAAC;AAEF,eAAe,aAAa,CAAC"}

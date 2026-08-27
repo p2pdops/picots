@@ -12,26 +12,55 @@ declare global {
   }
 }
 
+/**
+ * Format argument preview for clean log output
+ */
+function formatLogPayload(args: any[]): any {
+  if (!args || args.length === 0) return "";
+  if (args.length === 1) return args[0];
+  return args;
+}
+
 export class IpcMainManager {
   private _handlers: Map<string, IpcMainHandler> = new Map();
   private _listeners: Map<string, Function[]> = new Map();
+  private _logging: boolean = true;
 
   constructor() {
     (globalThis as any).__picots_ipc_main = this;
-    if (typeof process !== "undefined" && typeof window === "undefined") {
+    if (typeof process !== "undefined") {
       const isDev = process.env.NODE_ENV === "development" || process.env.PICOTS_DEV === "true" || !!process.env.PICOTS_IPC_PORT;
-      if (isDev) {
+      this._logging = process.env.PICOTS_IPC_LOGS !== "false";
+      if (typeof window === "undefined" && isDev) {
         this._startDevBridge();
       }
     }
   }
 
-  private _startDevBridge(): void {
+  /**
+   * Enable or disable IPC call logging in the main process.
+   */
+  setLogging(enabled: boolean): void {
+    this._logging = enabled;
+  }
+
+  isLoggingEnabled(): boolean {
+    return this._logging;
+  }
+
+  private async _startDevBridge(): Promise<void> {
     const port = parseInt(process.env.PICOTS_IPC_PORT || "5174", 10);
     const self = this;
     try {
-      const nodeRequire = (globalThis as any).require;
-      const http = typeof nodeRequire === "function" ? nodeRequire("node:http") : null;
+      let http: any = null;
+      try {
+        if (typeof (globalThis as any).require === "function") {
+          http = (globalThis as any).require("node:http");
+        } else {
+          http = await import("node:http");
+        }
+      } catch {}
+
       if (http && typeof http.createServer === "function") {
         const server = http.createServer(async (req: any, res: any) => {
           res.setHeader("Access-Control-Allow-Origin", "*");
@@ -138,6 +167,9 @@ export class IpcMainManager {
   }
 
   emit(channel: string, ...args: any[]): void {
+    if (this._logging) {
+      console.log(`\x1b[35m[IPC:Main]\x1b[0m 📢 emit: \x1b[36m${channel}\x1b[0m`, formatLogPayload(args));
+    }
     const list = this._listeners.get(channel);
     if (list) {
       for (const listener of list) {
@@ -158,17 +190,43 @@ export class IpcMainManager {
    * Internal dispatcher called by native COM IPC bridge.
    */
   async _dispatch(channel: string, ...args: any[]): Promise<any> {
+    const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
     const handler = this._handlers.get(channel);
+    
     if (handler) {
-      const event: IpcMainInvokeEvent = { sender: null, channel };
-      return await handler(event, ...args);
+      if (this._logging) {
+        console.log(`\x1b[35m[IPC:Main]\x1b[0m 📥 \x1b[36m${channel}\x1b[0m`, formatLogPayload(args));
+      }
+      try {
+        const event: IpcMainInvokeEvent = { sender: null, channel };
+        const result = await handler(event, ...args);
+        if (this._logging) {
+          const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
+          console.log(`\x1b[35m[IPC:Main]\x1b[0m ✅ \x1b[36m${channel}\x1b[0m \x1b[90m(${duration}ms)\x1b[0m`, result !== undefined ? result : "");
+        }
+        return result;
+      } catch (err: any) {
+        if (this._logging) {
+          const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
+          console.error(`\x1b[35m[IPC:Main]\x1b[0m ❌ \x1b[36m${channel}\x1b[0m \x1b[90m(${duration}ms)\x1b[0m:`, err?.message || err);
+        }
+        throw err;
+      }
     }
+
     const list = this._listeners.get(channel);
     if (list && list.length > 0) {
+      if (this._logging) {
+        console.log(`\x1b[35m[IPC:Main]\x1b[0m 📥 event: \x1b[36m${channel}\x1b[0m`, formatLogPayload(args));
+      }
       for (const listener of list) {
         listener({ channel }, ...args);
       }
       return { status: "ok" };
+    }
+
+    if (this._logging) {
+      console.warn(`\x1b[35m[IPC:Main]\x1b[0m ⚠️ No handler registered for '${channel}'`);
     }
     throw new Error(`No handler registered for '${channel}' in ipcMain`);
   }
@@ -176,10 +234,16 @@ export class IpcMainManager {
 
 export class IpcRendererManager {
   private _listeners: Map<string, IpcRendererListener[]> = new Map();
+  private _logging: boolean = true;
 
   constructor() {
     if (typeof window !== "undefined") {
+      this._logging = (window as any).__PICOTS_IPC_LOGS__ !== false;
+
       (window as any).__picots_ipc_receive = (channel: string, ...args: any[]) => {
+        if (this._logging) {
+          console.log(`%c[IPC:Renderer] 📩 receive: ${channel}`, "color: #ab47bc; font-weight: bold;", formatLogPayload(args));
+        }
         const list = this._listeners.get(channel);
         if (list) {
           for (const listener of list) {
@@ -209,67 +273,104 @@ export class IpcRendererManager {
   }
 
   /**
+   * Enable or disable IPC call logging in the renderer process.
+   */
+  setLogging(enabled: boolean): void {
+    this._logging = enabled;
+  }
+
+  isLoggingEnabled(): boolean {
+    return this._logging;
+  }
+
+  /**
    * Invokes a registered `ipcMain.handle(channel)` on the native backend.
    * Transports over zero-HTTP direct in-memory COM dispatch.
    */
   async invoke(channel: string, ...args: any[]): Promise<any> {
-    // 1. Direct native function match if available on window
-    const normalizedName = channel.replace(/[^a-zA-Z0-9_]/g, "_");
-    if (typeof (globalThis as any)[normalizedName] === "function") {
-      const raw = await (globalThis as any)[normalizedName](...args);
-      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (this._logging) {
+      console.log(`%c[IPC:Renderer] 📤 invoke: ${channel}`, "color: #00bcd4; font-weight: bold;", formatLogPayload(args));
     }
 
-    // 2. Generic native invoke dispatcher
-    if (typeof (globalThis as any).invoke === "function") {
-      const res = await (globalThis as any).invoke(channel, ...args);
-      return typeof res === "string" ? JSON.parse(res) : res;
-    }
+    try {
+      let result: any;
 
-    // 3. In-process direct memory dispatch (Production Standalone & Unified Runtime)
-    if (ipcMain && ipcMain.hasHandler(channel)) {
-      return await ipcMain._dispatch(channel, ...args);
-    }
+      // 1. Direct native function match if available on window
+      const normalizedName = channel.replace(/[^a-zA-Z0-9_]/g, "_");
+      if (typeof (globalThis as any)[normalizedName] === "function") {
+        const raw = await (globalThis as any)[normalizedName](...args);
+        result = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } else if (typeof (globalThis as any).invoke === "function") {
+        // 2. Generic native invoke dispatcher
+        const res = await (globalThis as any).invoke(channel, ...args);
+        result = typeof res === "string" ? JSON.parse(res) : res;
+      } else if (ipcMain && ipcMain.hasHandler(channel)) {
+        // 3. In-process direct memory dispatch (Production Standalone & Unified Runtime)
+        result = await ipcMain._dispatch(channel, ...args);
+      } else {
+        // 4. Dev Mode cross-process IPC Bridge over HTTP (only when running in Vite browser dev mode)
+        const isViteDev =
+          typeof window !== "undefined" &&
+          typeof fetch === "function" &&
+          (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+          window.location.port !== "";
 
-    // 4. Dev Mode cross-process IPC Bridge over HTTP (only when running in Vite browser dev mode)
-    const isViteDev =
-      typeof window !== "undefined" &&
-      typeof fetch === "function" &&
-      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
-      window.location.port !== "";
-
-    if (isViteDev) {
-      try {
-        const port = (window as any).__PICOTS_IPC_PORT__ || 5174;
-        const resp = await fetch(`http://localhost:${port}/__picots_ipc`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel, args }),
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.error) throw new Error(data.error);
-          return data.result;
+        if (isViteDev) {
+          try {
+            const port = (window as any).__PICOTS_IPC_PORT__ || 5174;
+            const resp = await fetch(`http://127.0.0.1:${port}/__picots_ipc`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ channel, args }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data && data.error) throw new Error(data.error);
+              result = data.result;
+            } else {
+              const errData = await resp.json().catch(() => ({}));
+              throw new Error(errData?.error || `Dev IPC bridge returned ${resp.status}`);
+            }
+          } catch (err: any) {
+            if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("NetworkError")) {
+              throw err;
+            }
+          }
         }
-      } catch (err: any) {
-        if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("NetworkError")) {
-          throw err;
+
+        // 5. Final in-process fallback
+        if (result === undefined && ipcMain) {
+          result = await ipcMain._dispatch(channel, ...args);
         }
       }
-    }
 
-    // 5. Final in-process fallback
-    if (ipcMain) {
-      return await ipcMain._dispatch(channel, ...args);
-    }
+      if (result === undefined && (!ipcMain || !ipcMain.hasHandler(channel))) {
+        throw new Error(`Failed to invoke IPC channel '${channel}': no backend handler active.`);
+      }
 
-    throw new Error(`Failed to invoke IPC channel '${channel}': no backend handler active.`);
+      if (this._logging) {
+        const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
+        console.log(`%c[IPC:Renderer] 📥 resolved: ${channel} (${duration}ms)`, "color: #4caf50; font-weight: bold;", result !== undefined ? result : "");
+      }
+
+      return result;
+    } catch (err: any) {
+      if (this._logging) {
+        const duration = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime).toFixed(2);
+        console.error(`%c[IPC:Renderer] ❌ error: ${channel} (${duration}ms)`, "color: #f44336; font-weight: bold;", err?.message || err);
+      }
+      throw err;
+    }
   }
 
   /**
    * Sends an asynchronous message to the main process.
    */
   send(channel: string, ...args: any[]): void {
+    if (this._logging) {
+      console.log(`%c[IPC:Renderer] 🚀 send: ${channel}`, "color: #ff9800; font-weight: bold;", formatLogPayload(args));
+    }
     this.invoke(channel, ...args).catch(() => {});
   }
 
@@ -309,3 +410,4 @@ export class IpcRendererManager {
 
 export const ipcMain = new IpcMainManager();
 export const ipcRenderer = new IpcRendererManager();
+

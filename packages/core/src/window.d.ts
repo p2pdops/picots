@@ -1,0 +1,214 @@
+export interface WebPreferences {
+    nodeIntegration?: boolean;
+    contextIsolation?: boolean;
+    preload?: string;
+    devTools?: boolean;
+    zoomFactor?: number;
+    offscreen?: boolean;
+    sandbox?: boolean;
+    webSecurity?: boolean;
+    allowRunningInsecureContent?: boolean;
+    webviewTag?: boolean;
+    plugins?: boolean;
+    experimentalFeatures?: boolean;
+    scrollBounce?: boolean;
+    backgroundThrottling?: boolean;
+    [key: string]: any;
+}
+export interface PrinterInfo {
+    name: string;
+    displayName: string;
+    description: string;
+    status: number;
+    isDefault: boolean;
+}
+export interface PrintOptions {
+    silent?: boolean;
+    printBackground?: boolean;
+    deviceName?: string;
+    color?: boolean;
+    margins?: {
+        marginType?: "default" | "none" | "printableArea" | "custom";
+        top?: number;
+        bottom?: number;
+        left?: number;
+        right?: number;
+        [key: string]: any;
+    };
+    landscape?: boolean;
+    scaleFactor?: number;
+    pagesPerSheet?: number;
+    collate?: boolean;
+    copies?: number;
+    header?: string;
+    footer?: string;
+    pageSize?: "A3" | "A4" | "A5" | "Legal" | "Letter" | "Tabloid" | string | {
+        width: number;
+        height: number;
+    };
+    [key: string]: any;
+}
+export interface PrintToPDFOptions {
+    landscape?: boolean;
+    displayHeaderFooter?: boolean;
+    printBackground?: boolean;
+    scale?: number;
+    paperWidth?: number;
+    paperHeight?: number;
+    marginTop?: number;
+    marginBottom?: number;
+    marginLeft?: number;
+    marginRight?: number;
+    margins?: {
+        marginType?: "default" | "none" | "printableArea" | "custom";
+        top?: number;
+        bottom?: number;
+        left?: number;
+        right?: number;
+        [key: string]: any;
+    };
+    pageSize?: "A3" | "A4" | "A5" | "Legal" | "Letter" | "Tabloid" | string | {
+        width: number;
+        height: number;
+    };
+    pageRanges?: string;
+    headerTemplate?: string;
+    footerTemplate?: string;
+    preferCSSPageSize?: boolean;
+    [key: string]: any;
+}
+export interface BrowserWindowConstructorOptions {
+    title?: string;
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
+    minWidth?: number;
+    minHeight?: number;
+    maxWidth?: number;
+    maxHeight?: number;
+    resizable?: boolean;
+    movable?: boolean;
+    minimizable?: boolean;
+    maximizable?: boolean;
+    closable?: boolean;
+    focusable?: boolean;
+    alwaysOnTop?: boolean;
+    fullscreen?: boolean;
+    fullscreenable?: boolean;
+    skipTaskbar?: boolean;
+    frame?: boolean;
+    frameless?: boolean;
+    transparent?: boolean;
+    opacity?: number;
+    backgroundColor?: string;
+    darkTheme?: boolean;
+    show?: boolean;
+    center?: boolean;
+    webPreferences?: WebPreferences;
+    icon?: string;
+    useContentSize?: boolean;
+    autoHideMenuBar?: boolean;
+    [key: string]: any;
+}
+export declare class BrowserWindow {
+    title: string;
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    private _isDestroyed;
+    private _isMaximized;
+    private _isMinimized;
+    private _isFullScreen;
+    private _isAlwaysOnTop;
+    private _isFocused;
+    private _opacity;
+    private _resizable;
+    private _movable;
+    private _minWidth;
+    private _minHeight;
+    private _maxWidth;
+    private _maxHeight;
+    private _listeners;
+    webContents: {
+        send: (channel: string, ...args: any[]) => void;
+        executeJavaScript: (code: string) => Promise<any>;
+        openDevTools: () => void;
+        closeDevTools: () => void;
+        isDevToolsOpened: () => boolean;
+        reload: () => void;
+        setZoomFactor: (factor: number) => void;
+        setWindowOpenHandler: (handler: (details: {
+            url: string;
+            frameName?: string;
+            disposition?: string;
+            [key: string]: any;
+        }) => {
+            action: "allow" | "deny";
+            [key: string]: any;
+        }) => void;
+        on: (event: string, listener: (event: any, ...args: any[]) => any) => void;
+        once: (event: string, listener: (event: any, ...args: any[]) => any) => void;
+        removeListener: (event: string, listener: (event: any, ...args: any[]) => any) => void;
+        print: (options?: PrintOptions, callback?: (success: boolean, failureReason?: string) => void) => Promise<void>;
+        printToPDF: (options?: PrintToPDFOptions) => Promise<Buffer>;
+        capturePage: (rect?: any) => Promise<any>;
+        getPrintersAsync: () => Promise<PrinterInfo[]>;
+    };
+    destroy(): void;
+    constructor(options?: BrowserWindowConstructorOptions);
+    loadURL(url: string): Promise<void>;
+    loadFile(filePath: string): Promise<void>;
+    setSize(width: number, height: number, animate?: boolean): Promise<void>;
+    getSize(): [number, number];
+    setPosition(x: number, y: number, animate?: boolean): Promise<void>;
+    getPosition(): [number, number];
+    center(): Promise<void>;
+    startDrag(): Promise<void>;
+    setFrame(frame: boolean): Promise<void>;
+    setFrameless(frameless: boolean): Promise<void>;
+    setAlwaysOnTop(flag: boolean, level?: string): Promise<void>;
+    isAlwaysOnTop(): boolean;
+    setOpacity(opacity: number): Promise<void>;
+    getOpacity(): number;
+    setTitle(title: string): void;
+    getTitle(): string;
+    setResizable(resizable: boolean): void;
+    isResizable(): boolean;
+    setMovable(movable: boolean): void;
+    isMovable(): boolean;
+    setMinimumSize(width: number, height: number): void;
+    getMinimumSize(): [number, number];
+    setMaximumSize(width: number, height: number): void;
+    getMaximumSize(): [number, number];
+    minimize(): Promise<void>;
+    maximize(): Promise<void>;
+    unmaximize(): Promise<void>;
+    isMaximized(): boolean;
+    isMinimized(): boolean;
+    setFullScreen(flag: boolean): Promise<void>;
+    isFullScreen(): boolean;
+    flashFrame(flag: boolean): Promise<void>;
+    hide(): Promise<void>;
+    show(): Promise<void>;
+    isVisible(): Promise<boolean>;
+    focus(): void;
+    blur(): void;
+    isFocused(): boolean;
+    close(): Promise<void>;
+    isDestroyed(): boolean;
+    restore(): Promise<void>;
+    on(event: string, listener: Function): this;
+    once(event: string, listener: Function): this;
+    removeListener(event: string, listener: Function): this;
+    private emit;
+    static _allWindows: BrowserWindow[];
+    static getAllWindows(): BrowserWindow[];
+    static getFocusedWindow(): BrowserWindow | null;
+    static fromWebContents(contents: any): BrowserWindow | null;
+    static fromId(id: number): BrowserWindow | null;
+}
+export declare const Window: typeof BrowserWindow;
+export type WindowOptions = BrowserWindowConstructorOptions;
+//# sourceMappingURL=window.d.ts.map

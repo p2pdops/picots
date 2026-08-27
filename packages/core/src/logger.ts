@@ -12,7 +12,19 @@ export function setupConsoleForwarder(): void {
   const origError = console.error.bind(console);
 
   function forward(type: "log" | "warn" | "error", args: any[]) {
-    const formatted = args
+    const cleanArgs: any[] = [];
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (typeof arg === "string" && arg.includes("%c")) {
+        const count = (arg.match(/%c/g) || []).length;
+        cleanArgs.push(arg.replace(/%c/g, ""));
+        i += count; // Skip the CSS styling strings
+      } else {
+        cleanArgs.push(arg);
+      }
+    }
+
+    const formatted = cleanArgs
       .map((arg) => {
         if (typeof arg === "string") return arg;
         if (arg instanceof Error) return `${arg.name}: ${arg.message}\n${arg.stack}`;

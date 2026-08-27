@@ -11,9 +11,24 @@ export const contextBridge: ContextBridge = {
    */
   exposeInMainWorld(apiKey: string, api: any): void {
     if (typeof window !== "undefined") {
-      (window as any)[apiKey] = api;
+      try {
+        Object.defineProperty(window, apiKey, {
+          value: api,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      } catch {
+        (window as any)[apiKey] = api;
+      }
+      
+      const isLogging = (window as any).__PICOTS_IPC_LOGS__ !== false;
+      if (isLogging) {
+        console.log(`%c[PicoTS:Preload] 🌉 contextBridge.exposeInMainWorld: "${apiKey}" successfully exposed to window`, "color: #00e5ff; font-weight: bold;");
+      }
     }
   },
 };
 
 export default contextBridge;
+

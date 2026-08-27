@@ -35,6 +35,9 @@
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0"
   },
+  "dependencies": {
+    "@picots/core": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0",

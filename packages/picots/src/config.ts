@@ -8,8 +8,24 @@ export function loadConfig(cwd: string = process.cwd()): PicotsConfig {
 
   let config: PicotsConfig = {};
 
-  // 1. Check picots.config.json
-  if (existsSync(jsonPath)) {
+  // 1. Check process.env.PICOTS_CONFIG_JSON (passed dynamically from vite.config.ts)
+  if (process.env.PICOTS_CONFIG_JSON) {
+    try {
+      config = JSON.parse(process.env.PICOTS_CONFIG_JSON);
+    } catch {}
+  }
+
+  // 2. Check .picots/config.json (generated from vite.config.ts during vite build)
+  const tempJsonPath = join(cwd, ".picots", "config.json");
+  if (Object.keys(config).length === 0 && existsSync(tempJsonPath)) {
+    try {
+      const raw = readFileSync(tempJsonPath, "utf8");
+      config = JSON.parse(raw);
+    } catch {}
+  }
+
+  // 3. Check picots.config.json if not provided via env or .picots/
+  if (Object.keys(config).length === 0 && existsSync(jsonPath)) {
     try {
       const raw = readFileSync(jsonPath, "utf8");
       config = JSON.parse(raw);
@@ -33,6 +49,17 @@ export function loadConfig(cwd: string = process.cwd()): PicotsConfig {
     for (const c of candidates) {
       if (existsSync(join(cwd, c))) {
         config.main = c;
+        break;
+      }
+    }
+  }
+
+  // 4. Fallback preload candidate detection
+  if (!config.preload) {
+    const preloadCandidates = ["src/preload/index.ts", "src/preload.ts", "src/preload/main.ts", "src/preload/preload.ts"];
+    for (const c of preloadCandidates) {
+      if (existsSync(join(cwd, c))) {
+        config.preload = c;
         break;
       }
     }

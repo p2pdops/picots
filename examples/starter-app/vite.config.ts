@@ -3,7 +3,28 @@ import react from "@vitejs/plugin-react";
 import picots from "@picots/vite-plugin";
 
 export default defineConfig({
-  plugins: [react(), picots()],
+  plugins: [
+    react(),
+    picots({
+      name: "starter-app",
+      main: "src/main/index.ts",
+      preload: "src/preload/index.ts",
+      logging: {
+        ipc: true,
+        renderer: true,
+      },
+      window: {
+        title: "PicoTS React Desktop",
+        width: 1200,
+        height: 800,
+        minWidth: 700,
+        minHeight: 500,
+        resizable: true,
+        frameless: true,
+        icon: "src/assets/icon.ico",
+      },
+    }),
+  ],
   build: {
     outDir: ".picots/frontend",
     emptyOutDir: true,
@@ -13,3 +34,4 @@ export default defineConfig({
     strictPort: true,
   },
 });
+
